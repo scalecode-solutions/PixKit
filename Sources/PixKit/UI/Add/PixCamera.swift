@@ -176,7 +176,10 @@ struct PixCameraView: View {
     @State private var recordingSince: Date?
     @State private var review: (URL, String)?
     @State private var problem: PixCaptureError?
-    @State private var starting = true
+    /// Set once the camera is closed (cancel, or the cover going away): a
+    /// photo or recording that lands afterwards is thrown away, not reviewed.
+    @State private var closed = false
+    @State private var used = false
 
     var body: some View {
         ZStack {
@@ -184,7 +187,7 @@ struct PixCameraView: View {
             if let review {
                 PixCaptureReview(url: review.0, isVideo: review.1.hasPrefix("video/"),
                                  retake: { PixCapture.discard(review.0); self.review = nil; Task { try? await camera.start() } },
-                                 use: { done(review) })
+                                 use: { used = true; done(review) })
             } else if let problem {
                 VStack(spacing: 16) {
                     Image(systemName: "camera").font(.largeTitle)
@@ -204,13 +207,13 @@ struct PixCameraView: View {
         }
         .statusBarHidden()
         .task { await open() }
-        .onDisappear { camera.stop() }
+        .onDisappear { close() }
     }
 
     private var controls: some View {
         VStack {
             HStack {
-                Button("Cancel", systemImage: "xmark") { camera.stop(); done(nil) }
+                Button("Cancel", systemImage: "xmark") { close(); done(nil) }
                     .labelStyle(.iconOnly)
                     .accessibilityIdentifier("pix.camera.cancel")
                 Spacer()
@@ -281,12 +284,20 @@ struct PixCameraView: View {
         .accessibilityIdentifier("pix.camera.shutter")
     }
 
+    /// Stop the camera and throw away anything not used: a review on screen,
+    /// and (via `closed`) a photo or recording still on its way.
+    private func close() {
+        guard !closed else { return }
+        closed = true
+        camera.stop()
+        if !used, let review { PixCapture.discard(review.0) }
+    }
+
     private func open() async {
         let video = await allowed(.video)
         guard video else { problem = .denied; return }
         _ = await allowed(.audio) // a video without sound is still a video
         do { try await camera.start() } catch { problem = .unavailable }
-        starting = false
     }
 
     private func allowed(_ media: AVMediaType) async -> Bool {
@@ -303,6 +314,7 @@ struct PixCameraView: View {
         case .photo:
             do {
                 let data = try await camera.photo(flash: flash, angle: angle)
+                guard !closed else { return }
                 let url = try PixCapture.newFile(config, ext: "jpg")
                 try data.write(to: url, options: .completeFileProtectionUntilFirstUserAuthentication)
                 camera.stop()
@@ -321,7 +333,9 @@ struct PixCameraView: View {
                 recordingSince = .now
                 let file = try await camera.finished()
                 recordingSince = nil
+                guard !closed else { PixCapture.discard(file); return }
                 camera.stop()
+                PixCapture.protect(file)
                 review = (file, "video/quicktime")
             } catch {
                 recordingSince = nil
@@ -338,14 +352,30 @@ struct PixCaptureReview: View {
     let retake: () -> Void
     let use: () -> Void
     @State private var player: AVPlayer?
+    /// Videos start muted (Travis, 2026-11-18); the button brings the sound in.
+    @State private var muted = true
 
     var body: some View {
         VStack {
             Group {
                 if isVideo {
                     VideoPlayer(player: player)
-                        .onAppear { player = AVPlayer(url: url) }
+                        .onAppear {
+                            let p = AVPlayer(url: url)
+                            p.isMuted = true
+                            player = p
+                        }
                         .onDisappear { player?.pause() }
+                        .overlay(alignment: .topTrailing) {
+                            Button(muted ? "Unmute" : "Mute", systemImage: muted ? "speaker.slash.fill" : "speaker.wave.2.fill") {
+                                muted.toggle()
+                                player?.isMuted = muted
+                            }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.glass)
+                            .padding()
+                            .accessibilityIdentifier("pix.camera.mute")
+                        }
                 } else if let image = UIImage(contentsOfFile: url.path) {
                     Image(uiImage: image).resizable().scaledToFit()
                 }

@@ -12,13 +12,25 @@ public enum PixCapture {
     /// The longest video or audio clip the server keeps (mvPix's cap is 5 min
     /// plus a little slack).
     public static let maxDuration: TimeInterval = 300
+    /// The largest file mvPix takes by default (PIX_MAX_UPLOAD_MB 1024): refuse
+    /// bigger before copying it anywhere.
+    public static let maxBytes: Int64 = 1 << 30
 
-    static func directory(_ config: PixConfig) throws -> URL {
+    /// The account's capture folder, beside the uploader's and the cache's:
+    /// `<storage>/PixKit/<account>/capture/`.
+    static func folder(_ config: PixConfig) throws -> URL {
         let base = try config.storageDirectory
             ?? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
                                        appropriateFor: nil, create: true)
-        let dir = base.appending(path: "PixKit/capture", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return base.appending(path: "PixKit", directoryHint: .isDirectory)
+            .appending(path: config.currentUserID.uuidString.lowercased(), directoryHint: .isDirectory)
+            .appending(path: "capture", directoryHint: .isDirectory)
+    }
+
+    static func directory(_ config: PixConfig) throws -> URL {
+        let dir = try folder(config)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+                                                attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         var d = dir
@@ -29,6 +41,22 @@ public enum PixCapture {
     /// A new file in the capture folder.
     static func newFile(_ config: PixConfig, ext: String) throws -> URL {
         try directory(config).appending(path: "\(UUID().uuidString.lowercased()).\(ext)")
+    }
+
+    /// Everything in the capture folder is an orphan whenever no add sheet is
+    /// open: a queued file was moved out before enqueue returned, and a thrown
+    /// away one deleted. The engine sweeps it when it's made and on wipe (a
+    /// kill mid-capture, a cover closed under a review).
+    static func sweep(_ config: PixConfig) {
+        guard let dir = try? folder(config) else { return }
+        try? FileManager.default.removeItem(at: dir)
+    }
+
+    /// Same protection for every capture, however it was written (the
+    /// recorders and the picker's move don't take options).
+    static func protect(_ url: URL) {
+        try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                                               ofItemAtPath: url.path)
     }
 
     /// Throw a capture away (cancel, retake, refused).
@@ -72,6 +100,8 @@ public enum PixCapture {
         guard let type = UTType(filenameExtension: url.pathExtension), let mime = mimeType(for: type) else {
             throw PixCaptureError.unsupported
         }
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        if Int64(size) > maxBytes { throw PixCaptureError.tooLarge }
         let seconds = try await AVURLAsset(url: url).load(.duration).seconds
         if seconds.isFinite, seconds > maxDuration + 10 { throw PixCaptureError.tooLong }
         return mime
@@ -79,12 +109,13 @@ public enum PixCapture {
 }
 
 enum PixCaptureError: Error, Equatable {
-    case unsupported, tooLong, denied, unavailable
+    case unsupported, tooLong, tooLarge, denied, unavailable
 
     var message: String {
         switch self {
         case .unsupported: String(localized: "That kind of file can't be shared here.")
         case .tooLong: String(localized: "Videos and clips can be up to 5 minutes.")
+        case .tooLarge: String(localized: "That file is too big to share (over 1 GB).")
         case .denied: String(localized: "Allow access in Settings to use this.")
         case .unavailable: String(localized: "This isn't available on this device.")
         }

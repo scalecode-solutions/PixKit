@@ -107,6 +107,9 @@ public final class PixEngine {
         self.transport = transport ?? config.transport
         self.cache = cache
         self.uploader = uploader
+        // No add sheet can be open yet: anything left in the capture folder
+        // is from a kill mid-capture (MVCALE-90).
+        PixCapture.sweep(config)
     }
 
     /// Page size for items. The server's max is 500; a screenful or two is plenty.
@@ -502,6 +505,7 @@ public final class PixEngine {
         ended = []
         listening?.cancel()
         listening = nil
+        PixCapture.sweep(config)
         if let cache { Task { await cache.wipeAll() } }
         if let uploader { Task { await uploader.wipeAll() } }
     }

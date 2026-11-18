@@ -64,6 +64,7 @@ final class PixClipRecorder {
         guard isRecording, let recorder, let url = file else { return nil }
         recorder.stop()
         finish()
+        PixCapture.protect(url)
         return url
     }
 

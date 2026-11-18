@@ -19,7 +19,7 @@ struct CaptureTests {
 
     @Test func capturesWaitInTheStorageFolderOutOfBackups() throws {
         let url = try PixCapture.newFile(config, ext: "jpg")
-        #expect(url.deletingLastPathComponent().path().hasSuffix("PixKit/capture/"))
+        #expect(url.deletingLastPathComponent().path().hasSuffix("PixKit/\(config.currentUserID.uuidString.lowercased())/capture/"))
         #expect(url.path().hasPrefix(root.path()))
         let dir = try PixCapture.directory(config)
         #expect(try dir.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
@@ -120,4 +120,72 @@ struct CaptureTests {
 actor PromptCounter {
     var value = 0
     func bump() { value += 1 }
+}
+
+/// Captures never outlive the session that made them.
+@MainActor
+struct CaptureSweepTests {
+    let root = FileManager.default.temporaryDirectory.appending(path: "pix-sweep-\(UUID().uuidString)")
+
+    func config(_ user: UUID) -> PixConfig {
+        PixConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: user, tokenProvider: { nil }, storageDirectory: root)
+    }
+
+    @Test func capturesArePerAccount() throws {
+        let a = UUID(), b = UUID()
+        let fa = try PixCapture.newFile(config(a), ext: "jpg")
+        let fb = try PixCapture.newFile(config(b), ext: "jpg")
+        #expect(fa.path().contains("/PixKit/\(a.uuidString.lowercased())/capture/"))
+        #expect(fb.path().contains("/PixKit/\(b.uuidString.lowercased())/capture/"))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func aNewEngineSweepsOrphans() throws {
+        let user = UUID()
+        let orphan = try PixCapture.newFile(config(user), ext: "mov")
+        try Data([1]).write(to: orphan)
+        let other = try PixCapture.newFile(config(UUID()), ext: "mov")
+        try Data([1]).write(to: other)
+        _ = PixEngine(config: config(user))
+        #expect(!FileManager.default.fileExists(atPath: orphan.path()))
+        // Someone else's folder isn't this engine's to sweep.
+        #expect(FileManager.default.fileExists(atPath: other.path()))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func wipeRemovesTheCaptureFolder() throws {
+        let user = UUID()
+        let engine = PixEngine(config: config(user))
+        let left = try PixCapture.newFile(config(user), ext: "m4a")
+        try Data([1]).write(to: left)
+        engine.wipe()
+        #expect(!FileManager.default.fileExists(atPath: try PixCapture.folder(config(user)).path()))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func aFileOverTheServersLimitIsRefusedUpFront() async throws {
+        let c = config(UUID())
+        let url = try PixCapture.newFile(c, ext: "mov")
+        FileManager.default.createFile(atPath: url.path(), contents: nil)
+        let h = try FileHandle(forWritingTo: url)
+        try h.truncate(atOffset: UInt64(PixCapture.maxBytes) + 1) // sparse: no real gigabyte written
+        try h.close()
+        await #expect(throws: PixCaptureError.tooLarge) { _ = try await PixCapture.timedFile(url) }
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func capturesAreProtectedUntilFirstUnlock() throws {
+        let c = config(UUID())
+        let url = try PixCapture.newFile(c, ext: "m4a")
+        try Data([1]).write(to: url)
+        PixCapture.protect(url)
+        let p = try FileManager.default.attributesOfItem(atPath: url.path())[.protectionKey] as? FileProtectionType
+        // The simulator doesn't keep data protection; on a device it's the class set.
+        #if !targetEnvironment(simulator)
+        #expect(p == .completeUntilFirstUserAuthentication)
+        #else
+        _ = p
+        #endif
+        try? FileManager.default.removeItem(at: root)
+    }
 }

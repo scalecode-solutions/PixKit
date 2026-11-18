@@ -28,6 +28,7 @@ struct PixAddPanel: View {
     var body: some View {
         NavigationStack {
             List {
+                Group {
                 Section {
                     PhotosPicker(selection: $picked, maxSelectionCount: 20, selectionBehavior: .ordered,
                                  matching: .any(of: [.images, .videos]), preferredItemEncoding: .current) {
@@ -38,11 +39,13 @@ struct PixAddPanel: View {
                         .accessibilityIdentifier("pix.add.camera")
                 }
                 Section("Audio clip") { clip }
+                }
+                // Close stays live while files queue (they go on queueing).
+                .disabled(working > 0)
                 if let problem {
                     Text(problem).foregroundStyle(.red).accessibilityIdentifier("pix.add.problem")
                 }
             }
-            .disabled(working > 0)
             .overlay { if working > 0 { ProgressView().controlSize(.large) } }
             .navigationTitle("Add")
             .navigationBarTitleDisplayMode(.inline)
@@ -121,8 +124,8 @@ struct PixAddPanel: View {
         // Say what was left out before sending, so the sheet stays open to show it.
         problem = refused == 0 ? nil
             : refused == 1
-                ? String(localized: "One item couldn't be added (an unsupported type, or longer than 5 minutes).")
-                : String(localized: "\(refused) items couldn't be added (unsupported types, or longer than 5 minutes).")
+                ? String(localized: "One item couldn't be added (an unsupported type, over 5 minutes, or over 1 GB).")
+                : String(localized: "\(refused) items couldn't be added (unsupported types, over 5 minutes, or over 1 GB).")
         await send(files)
     }
 
@@ -151,8 +154,15 @@ enum PixPicked {
         if types.contains(where: { $0.conforms(to: .movie) }) {
             guard let movie = try await item.loadTransferable(type: PickedMovie.self) else { throw PixCaptureError.unavailable }
             // Move it out of the picker's temporary copy into the capture folder.
-            let dest = try PixCapture.newFile(config, ext: movie.url.pathExtension.lowercased())
-            try FileManager.default.moveItem(at: movie.url, to: dest)
+            let dest: URL
+            do {
+                dest = try PixCapture.newFile(config, ext: movie.url.pathExtension.lowercased())
+                try FileManager.default.moveItem(at: movie.url, to: dest)
+            } catch {
+                PixCapture.discard(movie.url)
+                throw error
+            }
+            PixCapture.protect(dest)
             do {
                 return (dest, try await PixCapture.timedFile(dest))
             } catch {
