@@ -176,7 +176,7 @@ struct PixCameraView: View {
     @State private var recordingSince: Date?
     @State private var review: (URL, String)?
     @State private var problem: PixCaptureError?
-    /// Set once the camera is closed (cancel, or the cover going away): a
+    /// Set once the camera is closed (cancel, or the full-screen camera going away): a
     /// photo or recording that lands afterwards is thrown away, not reviewed.
     @State private var closed = false
     @State private var used = false

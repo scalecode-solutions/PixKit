@@ -46,7 +46,7 @@ public enum PixCapture {
     /// Everything in the capture folder is an orphan whenever no add sheet is
     /// open: a queued file was moved out before enqueue returned, and a thrown
     /// away one deleted. The engine sweeps it when it's made and on wipe (a
-    /// kill mid-capture, a cover closed under a review).
+    /// kill mid-capture, a camera closed under a review).
     static func sweep(_ config: PixConfig) {
         guard let dir = try? folder(config) else { return }
         try? FileManager.default.removeItem(at: dir)
