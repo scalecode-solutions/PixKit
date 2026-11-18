@@ -1,0 +1,491 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		245B790AA05F880FDD07A19F /* PixLabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E221B56D7E2EDA9D7967D65B /* PixLabApp.swift */; };
+		30DA1A7E3AB41A72F6CFEFF3 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0FC448D1B1563FF568EFA37 /* LoginView.swift */; };
+		351A8B43C689DFEB9081D058 /* Lab.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1966A61F8F75D7DCA72CF66 /* Lab.swift */; };
+		403E21E85ED2A49E6B0D73F2 /* MvAuth in Frameworks */ = {isa = PBXBuildFile; productRef = F10F831A310B8029A1C3EC45 /* MvAuth */; };
+		7966CD1971957624877C6885 /* LabShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9955DB0BE5B6D2E35DB92202 /* LabShell.swift */; };
+		7B8CAAA55EE260BF4710F124 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D0117D727893959426DC60 /* ContentView.swift */; };
+		7C2B25EA9F3E19CE8F77ECDF /* PixKit in Frameworks */ = {isa = PBXBuildFile; productRef = 132D9102B01C21215F6CDDF2 /* PixKit */; };
+		D38D3E3C77E776C9C1B667C1 /* PixLabShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */; };
+		E1D1E0CC3F8E5CB169293A90 /* AuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8BC594852B8BF5EB806A214A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2BC3747B906F6B08EB6C9888 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9F3C61DF67961A9E2DECE524;
+			remoteInfo = PixLab;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabShellUITests.swift; sourceTree = "<group>"; };
+		79D0117D727893959426DC60 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModel.swift; sourceTree = "<group>"; };
+		9955DB0BE5B6D2E35DB92202 /* LabShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabShell.swift; sourceTree = "<group>"; };
+		B0FC448D1B1563FF568EFA37 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		BB412AAD361E332AF2C54CB5 /* PixLabUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PixLabUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA983AAEACFC4FFAADAB472C /* PixKit-lab */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "PixKit-lab"; path = ..; sourceTree = SOURCE_ROOT; };
+		D1966A61F8F75D7DCA72CF66 /* Lab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lab.swift; sourceTree = "<group>"; };
+		E221B56D7E2EDA9D7967D65B /* PixLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabApp.swift; sourceTree = "<group>"; };
+		FAB8CE9EBBCD390E619B893C /* PixLab.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PixLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8FA3D06C8F1505497C406430 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7C2B25EA9F3E19CE8F77ECDF /* PixKit in Frameworks */,
+				403E21E85ED2A49E6B0D73F2 /* MvAuth in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FECB619D2482B4BB28D072 /* PixLab */ = {
+			isa = PBXGroup;
+			children = (
+				8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */,
+				79D0117D727893959426DC60 /* ContentView.swift */,
+				D1966A61F8F75D7DCA72CF66 /* Lab.swift */,
+				9955DB0BE5B6D2E35DB92202 /* LabShell.swift */,
+				B0FC448D1B1563FF568EFA37 /* LoginView.swift */,
+				E221B56D7E2EDA9D7967D65B /* PixLabApp.swift */,
+			);
+			path = PixLab;
+			sourceTree = "<group>";
+		};
+		4E7B500BAA391A73EBE7BC34 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				CA983AAEACFC4FFAADAB472C /* PixKit-lab */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		C836B5984C9DD6218E09D09A = {
+			isa = PBXGroup;
+			children = (
+				4E7B500BAA391A73EBE7BC34 /* Packages */,
+				08FECB619D2482B4BB28D072 /* PixLab */,
+				F38127D0E44A0A1662D0436F /* PixLabUITests */,
+				CB8211CA663BBFC2EC030F13 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CB8211CA663BBFC2EC030F13 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FAB8CE9EBBCD390E619B893C /* PixLab.app */,
+				BB412AAD361E332AF2C54CB5 /* PixLabUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F38127D0E44A0A1662D0436F /* PixLabUITests */ = {
+			isa = PBXGroup;
+			children = (
+				022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */,
+			);
+			path = PixLabUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		91D9FAE5DE84ADBF78799583 /* PixLabUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 32655B8FD4498675ED84A382 /* Build configuration list for PBXNativeTarget "PixLabUITests" */;
+			buildPhases = (
+				B535C81B586BE8BA85015B07 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F402C1AEFFD94369BB5F4D4E /* PBXTargetDependency */,
+			);
+			name = PixLabUITests;
+			packageProductDependencies = (
+			);
+			productName = PixLabUITests;
+			productReference = BB412AAD361E332AF2C54CB5 /* PixLabUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		9F3C61DF67961A9E2DECE524 /* PixLab */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E5B82210BC1FC5D4399E21E0 /* Build configuration list for PBXNativeTarget "PixLab" */;
+			buildPhases = (
+				CDDF19952AAFE56163C54AD3 /* Sources */,
+				8FA3D06C8F1505497C406430 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PixLab;
+			packageProductDependencies = (
+				132D9102B01C21215F6CDDF2 /* PixKit */,
+				F10F831A310B8029A1C3EC45 /* MvAuth */,
+			);
+			productName = PixLab;
+			productReference = FAB8CE9EBBCD390E619B893C /* PixLab.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2BC3747B906F6B08EB6C9888 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					91D9FAE5DE84ADBF78799583 = {
+						DevelopmentTeam = YBFJUNLFT6;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 9F3C61DF67961A9E2DECE524;
+					};
+					9F3C61DF67961A9E2DECE524 = {
+						DevelopmentTeam = YBFJUNLFT6;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 3CEB6C8FD94EE97115EDC313 /* Build configuration list for PBXProject "PixLab" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = C836B5984C9DD6218E09D09A;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BAA6E6F2FD6706AF77735BE5 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */,
+				BDF3778E1CE3622303683FC5 /* XCLocalSwiftPackageReference ".." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CB8211CA663BBFC2EC030F13 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9F3C61DF67961A9E2DECE524 /* PixLab */,
+				91D9FAE5DE84ADBF78799583 /* PixLabUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B535C81B586BE8BA85015B07 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D38D3E3C77E776C9C1B667C1 /* PixLabShellUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CDDF19952AAFE56163C54AD3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1D1E0CC3F8E5CB169293A90 /* AuthModel.swift in Sources */,
+				7B8CAAA55EE260BF4710F124 /* ContentView.swift in Sources */,
+				351A8B43C689DFEB9081D058 /* Lab.swift in Sources */,
+				7966CD1971957624877C6885 /* LabShell.swift in Sources */,
+				30DA1A7E3AB41A72F6CFEFF3 /* LoginView.swift in Sources */,
+				245B790AA05F880FDD07A19F /* PixLabApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F402C1AEFFD94369BB5F4D4E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9F3C61DF67961A9E2DECE524 /* PixLab */;
+			targetProxy = 8BC594852B8BF5EB806A214A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2933E85DCEDCB6762C3F9585 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = YBFJUNLFT6;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		7A25138FEBB3AF7807CDBE31 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PixLab;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos and videos to share in a space.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Record sound for videos and audio clips.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save photos and videos from a space.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick photos and videos to share in a space.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.PixLab;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		7E92F284FD850389B50CD1DB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = YBFJUNLFT6;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		92628C0CE1D025D7FC42CA3D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.PixLabUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PixLab;
+			};
+			name = Release;
+		};
+		E1230E7217E81F936C818E6A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PixLab;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos and videos to share in a space.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Record sound for videos and audio clips.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save photos and videos from a space.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick photos and videos to share in a space.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.PixLab;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		E39F998B3A9CB00B33BA1251 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.scalecode.PixLabUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PixLab;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		32655B8FD4498675ED84A382 /* Build configuration list for PBXNativeTarget "PixLabUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E39F998B3A9CB00B33BA1251 /* Debug */,
+				92628C0CE1D025D7FC42CA3D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		3CEB6C8FD94EE97115EDC313 /* Build configuration list for PBXProject "PixLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7E92F284FD850389B50CD1DB /* Debug */,
+				2933E85DCEDCB6762C3F9585 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E5B82210BC1FC5D4399E21E0 /* Build configuration list for PBXNativeTarget "PixLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E1230E7217E81F936C818E6A /* Debug */,
+				7A25138FEBB3AF7807CDBE31 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		BDF3778E1CE3622303683FC5 /* XCLocalSwiftPackageReference ".." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BAA6E6F2FD6706AF77735BE5 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/scalecode-solutions/MvAuth-iOS.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		132D9102B01C21215F6CDDF2 /* PixKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PixKit;
+		};
+		F10F831A310B8029A1C3EC45 /* MvAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BAA6E6F2FD6706AF77735BE5 /* XCRemoteSwiftPackageReference "MvAuth-iOS" */;
+			productName = MvAuth;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 2BC3747B906F6B08EB6C9888 /* Project object */;
+}
