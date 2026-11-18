@@ -415,6 +415,75 @@ struct EngineTests {
         #expect(engine.notices.last?.message == "That kind of file can't be shared here.")
     }
 
+    @Test func aJobThatFinishesBeforeEnqueueReturnsLeavesNoRow() async {
+        await friends()
+        let s = await server.seedSpace(with: bea)
+        let item = await server.seedItem(in: s.id, at: 1)
+        await engine.refresh()
+        await engine.loadItems(s.id)
+        await engine.startUploads()
+        await uploader.setEndsDuringEnqueue(.completed(itemID: item.id, outcome: .existing))
+        let file = FileManager.default.temporaryDirectory.appending(path: "x.jpg")
+        #expect(await engine.add(file: file, mimeType: "image/jpeg", to: s.id, ownsFile: false))
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(engine.uploads.isEmpty)
+        #expect(engine.items[s.id]?.items.map(\.id) == [item.id])
+    }
+
+    @Test func aLateEventAfterCancelDoesntBringTheRowBack() async {
+        await friends()
+        let s = await server.seedSpace(with: bea)
+        await engine.refresh()
+        await engine.startUploads()
+        let id = UUID()
+        await uploader.emit(event(id, s.id, .queued))
+        #expect(await eventually { engine.uploads.count == 1 })
+        await engine.cancelUpload(id)
+        // Progress already in the stream, and no .cancelled ever arriving.
+        await uploader.emit(event(id, s.id, .uploading(sent: 1, total: 2)))
+        await uploader.emit(event(id, s.id, .waiting(attempt: 1)))
+        try? await Task.sleep(for: .milliseconds(80))
+        #expect(engine.uploads.isEmpty)
+    }
+
+    @Test func dismissingAFailedUploadTellsTheUploader() async {
+        await friends()
+        let s = await server.seedSpace(with: bea)
+        await engine.refresh()
+        await engine.startUploads()
+        let id = UUID()
+        await uploader.emit(event(id, s.id, .failed(.unreadable)))
+        #expect(await eventually { engine.uploads.first?.isFailed == true })
+        engine.dismissUpload(id)
+        #expect(engine.uploads.isEmpty)
+        #expect(await eventually { await uploader.cancelled == [id] })
+        // A live job isn't the dismiss button's to drop.
+        let live = UUID()
+        await uploader.emit(event(live, s.id, .queued))
+        #expect(await eventually { engine.uploads.count == 1 })
+        engine.dismissUpload(live)
+        #expect(engine.uploads.count == 1)
+    }
+
+    @Test func aSpaceGoneDuringARefreshStaysGone() async {
+        await friends()
+        let s = await server.seedSpace(with: bea)
+        await engine.refresh()
+        await server.hold("listSpaces")
+        async let r: Void = engine.refresh()
+        #expect(await eventually { await server.isHolding("listSpaces") })
+        // The refresh's answer is taken while they're friends; then a call
+        // elsewhere finds the space gone.
+        await server.unfriend(bea)
+        await engine.loadItems(s.id)
+        #expect(engine.isGone(s.id))
+        await server.befriend(bea, name: "Bea")
+        await server.release("listSpaces")
+        await r
+        #expect(engine.isGone(s.id))
+        #expect(engine.space(s.id) == nil)
+    }
+
     @Test func aWipeStopsMirroringUploads() async {
         await friends()
         let s = await server.seedSpace(with: bea)

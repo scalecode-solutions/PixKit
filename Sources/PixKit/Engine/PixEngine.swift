@@ -97,6 +97,9 @@ public final class PixEngine {
     /// Uploads waiting, sending or failed, oldest first. A finished one leaves
     /// and its item shows in the space; a cancelled one just leaves.
     public private(set) var uploads: [PixUploadRow] = []
+    /// Jobs that ended here (finished, cancelled, dismissed, space gone): no
+    /// later event or late enqueue answer makes a row for them again.
+    private var ended: Set<PixUploadID> = []
 
     public init(config: PixConfig, transport: (any PixTransport)? = nil,
                 cache: (any PixMediaCaching)? = nil, uploader: (any PixUploading)? = nil) {
@@ -151,6 +154,7 @@ public final class PixEngine {
 
     private func runRefresh() async {
         let gen = generation
+        let goneBefore = goneSpaces
         if spaces.isEmpty { spacesState = .loading }
         async let f = transport.listFriends()
         async let s = transport.listSpaces()
@@ -159,12 +163,16 @@ public final class PixEngine {
             guard gen == generation else { return }
             needsSignIn = false
             // A space that was here and isn't now went away (an unfriend).
-            let now = Set(newSpaces.map(\.id))
+            // One that went away while this ran (a NotFound elsewhere) stays
+            // gone: this answer was taken before it.
+            let goneMeanwhile = goneSpaces.subtracting(goneBefore)
+            let fresh = newSpaces.filter { !goneMeanwhile.contains($0.id) }
+            let now = Set(fresh.map(\.id))
             for old in spaces where !now.contains(old.id) { spaceGone(old.id, notify: true) }
             // One that's back (a re-friend reopens the same space) isn't gone.
             goneSpaces.subtract(now)
             friends = newFriends
-            spaces = newSpaces
+            spaces = fresh
             spacesState = .loaded
         } catch {
             guard gen == generation else { return }
@@ -351,7 +359,9 @@ public final class PixEngine {
         do {
             let id = try await uploader.enqueue(file: file, mimeType: mimeType, spaceID: spaceID, ownsFile: ownsFile)
             guard gen == generation else { return false }
-            if uploads.first(where: { $0.id == id }) == nil {
+            // The job may already have ended (a tiny file, or a re-add the
+            // server answered at once) while this waited for enqueue.
+            if !ended.contains(id), uploads.first(where: { $0.id == id }) == nil {
                 let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
                 uploads.append(PixUploadRow(id: id, spaceID: spaceID, mimeType: mimeType, size: size, state: .queued))
             }
@@ -367,25 +377,33 @@ public final class PixEngine {
     public func uploads(in spaceID: UUID) -> [PixUploadRow] { uploads.filter { $0.spaceID == spaceID } }
 
     public func cancelUpload(_ id: PixUploadID) async {
+        ended.insert(id)
         uploads.removeAll { $0.id == id }
         await uploader?.cancel(id)
     }
 
-    /// Take a failed upload's row away.
+    /// Take a failed upload's row away. The uploader is told too, so the job's
+    /// staged file and journal entry go with it.
     public func dismissUpload(_ id: PixUploadID) {
-        uploads.removeAll { $0.id == id && $0.isFailed }
+        guard uploads.contains(where: { $0.id == id && $0.isFailed }) else { return }
+        ended.insert(id)
+        uploads.removeAll { $0.id == id }
+        if let uploader { Task { await uploader.cancel(id) } }
     }
 
     func apply(_ event: PixUploadEvent) async {
         switch event.state {
         case .cancelled:
+            ended.insert(event.id)
             uploads.removeAll { $0.id == event.id }
         case .failed(.spaceGone):
+            ended.insert(event.id)
             uploads.removeAll { $0.id == event.id }
             spaceGone(event.spaceID, notify: true)
         case .failed:
             setRow(event)
         case .completed:
+            ended.insert(event.id)
             uploads.removeAll { $0.id == event.id }
             // complete answers only the item id: fetch the newest page and
             // merge it in by id (a re-add's item is already there; nothing
@@ -399,6 +417,9 @@ public final class PixEngine {
     }
 
     private func setRow(_ event: PixUploadEvent) {
+        // An event still in the stream for a job that ended here (cancelled,
+        // finished, dismissed) doesn't bring its row back.
+        guard !ended.contains(event.id) else { return }
         let row = PixUploadRow(id: event.id, spaceID: event.spaceID, mimeType: event.mimeType,
                                size: event.size, state: event.state)
         if let i = uploads.firstIndex(where: { $0.id == event.id }) {
@@ -478,6 +499,7 @@ public final class PixEngine {
         needsSignIn = false
         spacesState = .idle
         uploads = []
+        ended = []
         listening?.cancel()
         listening = nil
         if let cache { Task { await cache.wipeAll() } }

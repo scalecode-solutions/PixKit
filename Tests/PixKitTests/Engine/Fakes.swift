@@ -156,6 +156,10 @@ actor FakeUploader: PixUploading {
 
     func setResumable(_ events: [PixUploadEvent]) { resumable = events }
     func setEnqueueError(_ e: PixTransportError?) { enqueueError = e }
+    /// The job reaches this state before enqueue returns (a tiny file, or a
+    /// re-add the server answers at once).
+    var endsDuringEnqueue: PixUploadState?
+    func setEndsDuringEnqueue(_ s: PixUploadState?) { endsDuringEnqueue = s }
 
     func emit(_ event: PixUploadEvent) {
         for c in continuations.withLock({ $0 }) { c.yield(event) }
@@ -167,6 +171,11 @@ actor FakeUploader: PixUploading {
         if let enqueueError { throw enqueueError }
         let id = UUID()
         enqueued.append((id, spaceID, mimeType))
+        if let endsDuringEnqueue {
+            emit(PixUploadEvent(id: id, spaceID: spaceID, mimeType: mimeType, size: 1, uploadID: nil,
+                                state: endsDuringEnqueue))
+            try? await Task.sleep(for: .milliseconds(150))
+        }
         return id
     }
 
