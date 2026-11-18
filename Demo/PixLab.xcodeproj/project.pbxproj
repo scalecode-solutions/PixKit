@@ -30,12 +30,12 @@
 
 /* Begin PBXFileReference section */
 		022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabShellUITests.swift; sourceTree = "<group>"; };
+		3BDCDCF3239E78B181208783 /* PixKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PixKit; path = ..; sourceTree = SOURCE_ROOT; };
 		79D0117D727893959426DC60 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModel.swift; sourceTree = "<group>"; };
 		9955DB0BE5B6D2E35DB92202 /* LabShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabShell.swift; sourceTree = "<group>"; };
 		B0FC448D1B1563FF568EFA37 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		BB412AAD361E332AF2C54CB5 /* PixLabUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PixLabUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CA983AAEACFC4FFAADAB472C /* PixKit-lab */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "PixKit-lab"; path = ..; sourceTree = SOURCE_ROOT; };
 		D1966A61F8F75D7DCA72CF66 /* Lab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lab.swift; sourceTree = "<group>"; };
 		E221B56D7E2EDA9D7967D65B /* PixLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabApp.swift; sourceTree = "<group>"; };
 		FAB8CE9EBBCD390E619B893C /* PixLab.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PixLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -70,7 +70,7 @@
 		4E7B500BAA391A73EBE7BC34 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				CA983AAEACFC4FFAADAB472C /* PixKit-lab */,
+				3BDCDCF3239E78B181208783 /* PixKit */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
