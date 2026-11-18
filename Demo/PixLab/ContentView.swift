@@ -70,14 +70,15 @@ struct DevSignIn {
 }
 #endif
 
-/// The dev host: builds the kit's config with the Lab's token provider and
-/// shows the shell. Until PixEngine (C3) and the space UI (C4) land, the shell
-/// talks to the transport directly.
+/// The dev host: builds the kit's config with the Lab's token provider, one
+/// engine per signed-in identity (the caller gives each its own `.id`), and
+/// shows the shell.
 struct PixLabHost: View {
     let userID: UUID
     let server: LabServer
     let signOut: () -> Void
     let config: PixConfig
+    @State private var engine: PixEngine
 
     init(userID: UUID, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?, signOut: @escaping () -> Void) {
         self.userID = userID
@@ -86,10 +87,11 @@ struct PixLabHost: View {
         self.config = PixConfig(baseURL: server.pixBaseURL,
                                 currentUserID: userID,
                                 tokenProvider: tokenProvider)
+        _engine = State(initialValue: PixEngine(config: config))
     }
 
     var body: some View {
-        LabShell(config: config) { account }
+        LabShell(config: config, engine: engine) { account }
     }
 
     /// PixLab's own rows.
@@ -97,9 +99,12 @@ struct PixLabHost: View {
         Section("Account") {
             LabeledContent("User ID") { Text(userID.uuidString.lowercased()).font(.caption.monospaced()).textSelection(.enabled) }
             LabeledContent("Server", value: server.rawValue)
-            // TODO(C3/C4): engine.wipe() here, before signOut, once the engine is
-            // wired in (cache + upload journal under PixKit/<account>).
-            Button("Sign out", role: .destructive) { signOut() }
+            // Sign-out wipes the kit first: its memory, and (once bytes are
+            // wired) the cache and upload journal under PixKit/<account>.
+            Button("Sign out", role: .destructive) {
+                engine.wipe()
+                signOut()
+            }
         }
     }
 }

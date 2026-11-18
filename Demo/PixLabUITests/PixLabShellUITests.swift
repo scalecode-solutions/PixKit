@@ -40,10 +40,33 @@ final class PixLabShellUITests: XCTestCase {
     /// The spaces list loads without an error, and + offers the friends.
     func testSpacesAndTheFriendPicker() {
         XCTAssert(app.navigationBars["Spaces"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.staticTexts["lab.error"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["pix.spaces.error"].waitForExistence(timeout: 3))
         shot("spaces")
-        app.buttons["lab.newSpace"].tap()
-        XCTAssert(app.navigationBars["Share with"].waitForExistence(timeout: 5))
+        let new = app.buttons["pix.spaces.new"]
+        XCTAssert(new.waitForExistence(timeout: 10))
+        // Enabled once the list has loaded.
+        XCTAssert(NSPredicate(format: "isEnabled == true").evaluate(with: new) || {
+            let e = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: new)
+            return XCTWaiter().wait(for: [e], timeout: 10) == .completed
+        }())
+        new.tap()
+        XCTAssert(app.navigationBars["New space"].waitForExistence(timeout: 5))
         shot("friends")
+    }
+
+    /// A space opens to its grid (or its empty state), with add and more.
+    /// Read-only: nothing is renamed or added.
+    func testASpaceOpens() throws {
+        XCTAssert(app.navigationBars["Spaces"].waitForExistence(timeout: 10))
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'pix.space.'")).firstMatch
+        guard row.waitForExistence(timeout: 10) else { throw XCTSkip("this account has no space on the local stack") }
+        row.tap()
+        XCTAssert(app.buttons["pix.space.add"].waitForExistence(timeout: 10))
+        XCTAssert(app.buttons["pix.space.more"].exists)
+        sleep(2)
+        shot("space")
+        app.buttons["pix.space.more"].tap()
+        XCTAssert(app.buttons["Rename"].waitForExistence(timeout: 5))
+        shot("space-menu")
     }
 }
