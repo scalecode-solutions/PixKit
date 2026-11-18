@@ -86,6 +86,8 @@ struct PixAddPanel: View {
                     defer { working -= 1; compressing = nil }
                     do {
                         let ready = try await PixCapture.preparedVideo(url, config: config, progress: progressSink())
+                        // Closed while it was prepared: close means nothing goes up.
+                        guard !Task.isCancelled else { return PixCapture.discard(ready.0) }
                         await send([ready])
                     } catch {
                         PixCapture.discard(url)
