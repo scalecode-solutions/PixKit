@@ -12,17 +12,30 @@ public struct PixConfig: Sendable {
     /// Where the kit keeps its cache and upload journal, when the host wants
     /// somewhere specific; nil → the app's own Caches / Application Support.
     public let storageDirectory: URL?
+    /// Wraps every camera, microphone and photo-library permission request the
+    /// kit makes. A system prompt makes the app inactive; a host that locks or
+    /// covers itself when that happens can stand down for the prompt here.
+    /// nil → the request runs as is.
+    public let systemPrompt: (@Sendable (@escaping @Sendable () async -> Bool) async -> Bool)?
     // No notifications of any kind: nothing in a space announces itself
     // outside the app.
 
     public init(baseURL: URL,
                 currentUserID: UUID,
                 tokenProvider: @escaping @Sendable () async -> String?,
-                storageDirectory: URL? = nil) {
+                storageDirectory: URL? = nil,
+                systemPrompt: (@Sendable (@escaping @Sendable () async -> Bool) async -> Bool)? = nil) {
         self.baseURL = baseURL
         self.currentUserID = currentUserID
         self.tokenProvider = tokenProvider
         self.storageDirectory = storageDirectory
+        self.systemPrompt = systemPrompt
+    }
+
+    /// Runs a permission request through the host's `systemPrompt`, if any.
+    func prompt(_ request: @escaping @Sendable () async -> Bool) async -> Bool {
+        if let systemPrompt { return await systemPrompt(request) }
+        return await request()
     }
 
     /// The live transport — Connect/protobuf against mvPix.
