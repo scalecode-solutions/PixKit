@@ -103,7 +103,9 @@ public enum PixUploadFailure: Sendable, Equatable {
     case refused(reason: String, message: String)
 }
 
-/// Files on disk for items and thumbnails: Caches/PixKit/<account>/<space>/<item>[.thumb].
+/// Files on disk for items and thumbnails: Caches/PixKit/<account>/cache/<space>/<item>[.thumb]
+/// (beside, never around, the uploader's PixKit/<account>/uploads/ when a
+/// host gives both one storage directory).
 public protocol PixMediaCaching: Sendable {
     /// The cached file if it's on disk, without asking the server.
     func cached(item: UUID, spaceID: UUID, thumb: Bool) async -> URL?

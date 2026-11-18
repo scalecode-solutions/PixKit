@@ -27,7 +27,7 @@ import Testing
         #expect(server.lock.withLock { server.items[item]?.data } == data)
         // Copied, not moved: the caller's file stays; the staged copy is gone.
         #expect(FileManager.default.fileExists(atPath: file.path))
-        #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: up.folder.path))?.isEmpty ?? true })
+        #expect(await bytesEventually { (try? FileManager.default.contentsOfDirectory(atPath: up.folder.path))?.isEmpty ?? true })
     }
 
     @Test func anOwnedFileIsMovedSoNothingLingersInTmp() async throws {
@@ -41,7 +41,7 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: file.path))
         let got = await collect(events)
         guard case .completed? = got.final else { Issue.record("\(got.states)"); return }
-        #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: up.folder.path))?.isEmpty ?? true })
+        #expect(await bytesEventually { (try? FileManager.default.contentsOfDirectory(atPath: up.folder.path))?.isEmpty ?? true })
     }
 
     @Test func anOwnedFileIsDeletedWhenEnqueueFails() async throws {
@@ -71,9 +71,7 @@ import Testing
         let events = first.events()
         let (file, data) = try fx.file(150)
         _ = try await first.enqueue(file: file, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
-        var seenWaiting = false
-        for await e in events { if case .waiting = e.state { seenWaiting = true; break } }
-        #expect(seenWaiting)
+        #expect(await waitFor(events, isWaiting))
 
         // The "kill": the app's folder as it was, picked up by a new process.
         let relaunched = fx.dir.appending(path: "relaunched")
@@ -108,7 +106,7 @@ import Testing
         let events = first.events()
         let (file, data) = try fx.file(150)
         _ = try await first.enqueue(file: file, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
-        for await e in events { if case .waiting = e.state { break } }
+        #expect(await waitFor(events, isWaiting))
         let relaunched = fx.dir.appending(path: "relaunched")
         try FileManager.default.copyItem(at: fx.dir.appending(path: "support"), to: relaunched)
         await first.wipeAll()
@@ -212,7 +210,7 @@ import Testing
         _ = try await up.enqueue(file: file, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
         let got = await collect(events)
         #expect(got.final == .failed(.spaceGone))
-        #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: up.folder.path))?.isEmpty ?? true })
+        #expect(await bytesEventually { (try? FileManager.default.contentsOfDirectory(atPath: up.folder.path))?.isEmpty ?? true })
         #expect(await up.jobs().isEmpty)
     }
 
@@ -237,7 +235,7 @@ import Testing
         let events = up.events()
         let (file, _) = try fx.file(20)
         let id = try await up.enqueue(file: file, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
-        for await e in events { if case .waiting = e.state { break } }
+        #expect(await waitFor(events, isWaiting))
         await up.cancel(id)
         #expect(await up.jobs().isEmpty)
         #expect((try? FileManager.default.contentsOfDirectory(atPath: up.folder.path))?.isEmpty ?? true)
@@ -264,6 +262,73 @@ import Testing
         let got = await collect(events, finals: 2)
         #expect(got.last(where: { $0.id == a && $0.state.isFinal })?.state == .cancelled)
         guard case .completed? = got.last(where: { $0.id == b && $0.state.isFinal })?.state else { Issue.record("\(got.states)"); return }
+    }
+
+    @Test func aJobTheServerKeepsFailingNeitherBlocksTheNextNorRunsForever() async throws {
+        let fx = try BytesFixture(); defer { fx.cleanup() }
+        let server = FakeBlobServer()
+        let bad = UUID()
+        let refused = Counter()
+        // Every init for the bad space is a 500; the good space is healthy.
+        server.inject = { req, _ in
+            if req.httpMethod == "POST", let body = req.httpBody.map({ String(decoding: $0, as: UTF8.self) }),
+               body.contains(bad.uuidString.lowercased()) { refused.add(); return 500 }
+            return nil
+        }
+        let up = fx.uploader(server)
+        let events = up.events()
+        let (f1, _) = try fx.file(20)
+        let (f2, _) = try fx.file(20)
+        let stuck = try await up.enqueue(file: f1, mimeType: "image/jpeg", spaceID: bad, ownsFile: false)
+        let fine = try await up.enqueue(file: f2, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
+        let got = await collect(events, finals: 2)
+
+        guard case .completed? = got.last(where: { $0.id == fine && $0.state.isFinal })?.state else {
+            Issue.record("the healthy job never finished: \(got.states)"); return
+        }
+        let end = got.last { $0.id == stuck && $0.state.isFinal }?.state
+        #expect(end == .failed(.refused(reason: "HTTP_500", message: "")), "\(String(describing: end))")
+        #expect(refused.value == PixUploader.maxServerFailures, "tried exactly the cap: \(refused.value)")
+        #expect(await up.jobs().isEmpty)
+    }
+
+    @Test func noAnswerAtAllKeepsTryingPastTheServerCap() async throws {
+        let fx = try BytesFixture(); defer { fx.cleanup() }
+        let server = FakeBlobServer()
+        server.inject = { _, n in
+            if n <= PixUploader.maxServerFailures + 4 { throw URLError(.notConnectedToInternet) }
+            return nil
+        }
+        let up = fx.uploader(server)
+        let events = up.events()
+        let (file, _) = try fx.file(20)
+        _ = try await up.enqueue(file: file, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
+        let got = await collect(events)
+        guard case .completed? = got.final else { Issue.record("\(got.states)"); return }
+        #expect(got.states.contains(.waiting(attempt: PixUploader.maxServerFailures + 4)))
+    }
+
+    @Test func aWaitingJobDoesNotDelayANewOne() async throws {
+        let fx = try BytesFixture(); defer { fx.cleanup() }
+        let server = FakeBlobServer()
+        let bad = UUID()
+        server.inject = { req, _ in
+            if req.httpMethod == "POST", let body = req.httpBody.map({ String(decoding: $0, as: UTF8.self) }),
+               body.contains(bad.uuidString.lowercased()) { throw URLError(.notConnectedToInternet) }
+            return nil
+        }
+        let up = fx.uploader(server, backoff: .seconds(3600))
+        let events = up.events()
+        let (f1, _) = try fx.file(20)
+        _ = try await up.enqueue(file: f1, mimeType: "image/jpeg", spaceID: bad, ownsFile: false)
+        #expect(await waitFor(events, isWaiting))
+        // The first job now waits an hour; a new one goes at once.
+        let events2 = up.events()
+        let (f2, _) = try fx.file(20)
+        let fresh = try await up.enqueue(file: f2, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
+        let got = await collect(events2, timeout: .seconds(5))
+        #expect(got.final.map { if case .completed = $0 { true } else { false } } == true && got.last?.id == fresh, "\(got.states)")
+        await up.wipeAll()
     }
 
     @Test func wipeAllRemovesTheJournal() async throws {
@@ -298,9 +363,7 @@ import Testing
         let events = up.events()
         let (file, _) = try fx.file(20)
         _ = try await up.enqueue(file: file, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
-        var waited = false
-        for await e in events { if case .waiting = e.state { waited = true; break }; if e.state.isFinal { break } }
-        #expect(waited)
+        #expect(await waitFor(events, isWaiting))
         #expect(server.lock.withLock { server.requestCount } == 0, "nothing is sent without a token")
         await up.wipeAll()
     }
@@ -314,6 +377,13 @@ import Testing
     @Test func typesTheServerRefusesHaveNoKind() {
         for m in ["image/gif", "image/webp", "video/webm", "application/pdf", ""] { #expect(PixKind(mimeType: m) == nil) }
     }
+}
+
+final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var n = 0
+    var value: Int { lock.withLock { n } }
+    func add() { lock.withLock { n += 1 } }
 }
 
 /// A one-way switch for the fake's closures.

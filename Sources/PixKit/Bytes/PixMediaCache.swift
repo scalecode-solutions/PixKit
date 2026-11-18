@@ -1,7 +1,7 @@
 import Foundation
 
 /// The disk cache for items' files and thumbnails, in the shape of the
-/// host's own media cache: Library/Caches/PixKit/<account>/<space>/<item>,
+/// host's own media cache: Library/Caches/PixKit/<account>/cache/<space>/<item>,
 /// with the thumbnail beside it as <item>.thumb. iOS may reclaim Caches
 /// under storage pressure; a missing file just downloads again.
 ///
@@ -31,6 +31,7 @@ public actor PixMediaCache: PixMediaCaching {
         self.root = caches
             .appending(path: "PixKit", directoryHint: .isDirectory)
             .appending(path: account.uuidString.lowercased(), directoryHint: .isDirectory)
+            .appending(path: "cache", directoryHint: .isDirectory)
         self.client = client
     }
 
@@ -55,6 +56,7 @@ public actor PixMediaCache: PixMediaCaching {
         let client = self.client
         let epoch = (wipes[space, default: 0], wipeAllCount)
         let task = Task<URL, Error> {
+            try Task.checkCancellation() // wiped before it began: leave no folder
             try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
             try await client.download(item: item, thumb: thumb, to: dest)
             return dest

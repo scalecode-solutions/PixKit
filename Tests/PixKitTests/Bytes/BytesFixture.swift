@@ -61,8 +61,28 @@ extension Array where Element == PixUploadEvent {
     var final: PixUploadState? { last(where: { $0.state.isFinal })?.state }
 }
 
+/// Waits for the first event matching `pred` (false on timeout).
+func waitFor(_ stream: AsyncStream<PixUploadEvent>, timeout: Duration = .seconds(10),
+             _ pred: @escaping @Sendable (PixUploadEvent) -> Bool) async -> Bool {
+    await withTaskGroup(of: Bool.self) { group in
+        group.addTask {
+            for await e in stream where pred(e) { return true }
+            return false
+        }
+        group.addTask {
+            try? await Task.sleep(for: timeout)
+            return false
+        }
+        let first = await group.next() ?? false
+        group.cancelAll()
+        return first
+    }
+}
+
+func isWaiting(_ e: PixUploadEvent) -> Bool { if case .waiting = e.state { true } else { false } }
+
 /// Waits until `cond` holds, polling briefly.
-func eventually(_ timeout: Duration = .seconds(5), _ cond: @Sendable () async -> Bool) async -> Bool {
+func bytesEventually(_ timeout: Duration = .seconds(5), _ cond: @Sendable () async -> Bool) async -> Bool {
     let end = ContinuousClock.now + timeout
     while ContinuousClock.now < end {
         if await cond() { return true }

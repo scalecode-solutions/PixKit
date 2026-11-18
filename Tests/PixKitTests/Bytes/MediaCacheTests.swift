@@ -22,7 +22,7 @@ import Testing
         _ = try await cache.file(item: item, spaceID: fx.space, thumb: false)
         #expect(server.lock.withLock { server.log.filter { $0.hasPrefix("GET") }.count } == 1)
         // Laid out per account and space, keyed by item id.
-        #expect(urls[0].path.hasSuffix("/PixKit/\(fx.account.uuidString.lowercased())/\(fx.space.uuidString.lowercased())/\(item.uuidString.lowercased())"))
+        #expect(urls[0].path.hasSuffix("/PixKit/\(fx.account.uuidString.lowercased())/cache/\(fx.space.uuidString.lowercased())/\(item.uuidString.lowercased())"))
         #expect(await cache.cached(item: item, spaceID: fx.space, thumb: false) == urls[0])
     }
 
@@ -139,11 +139,11 @@ import Testing
             return nil
         }
         let t = Task { try await cache.file(item: item, spaceID: fx.space, thumb: false) }
-        #expect(await eventually { started.isSet })
+        #expect(await bytesEventually { started.isSet })
         await cache.wipe(spaceID: fx.space)
         _ = release.flip()
         _ = await t.result
-        #expect(await eventually { await cache.cached(item: item, spaceID: fx.space, thumb: false) == nil })
+        #expect(await bytesEventually { await cache.cached(item: item, spaceID: fx.space, thumb: false) == nil })
         #expect(!FileManager.default.fileExists(atPath: cache.url(item: item, spaceID: fx.space).path))
     }
 
@@ -157,5 +157,22 @@ import Testing
         #expect(await theirs.cached(item: item, spaceID: fx.space, thumb: false) == nil)
         await theirs.wipeAll()
         #expect(await mine.cached(item: item, spaceID: fx.space, thumb: false) != nil)
+    }
+
+    @Test func theCacheAndTheJournalShareAStorageDirectoryWithoutTouching() async throws {
+        let fx = try BytesFixture(); defer { fx.cleanup() }
+        let server = FakeBlobServer()
+        server.inject = { _, _ in throw URLError(.notConnectedToInternet) } // the job stays queued
+        let shared = fx.dir.appending(path: "group")
+        let cache = PixMediaCache(account: fx.account, client: server.client(), base: shared)
+        let up = PixUploader(account: fx.account, client: server.client(), base: shared, backoff: { _ in .seconds(3600) })
+        let (file, _) = try fx.file(40)
+        _ = try await up.enqueue(file: file, mimeType: "image/jpeg", spaceID: fx.space, ownsFile: false)
+
+        await cache.wipeAll()
+        #expect(await up.jobs().count == 1)
+        #expect(((try? FileManager.default.contentsOfDirectory(atPath: up.folder.path)) ?? []).count == 1, "the journal survives a cache wipe")
+        #expect(!up.folder.path.hasPrefix(cache.root.path + "/") && !cache.root.path.hasPrefix(up.folder.path + "/"))
+        await up.wipeAll()
     }
 }

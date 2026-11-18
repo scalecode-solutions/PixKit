@@ -193,7 +193,7 @@ struct LiveBytesTests {
         let events = first.events()
         _ = try await first.enqueue(file: file, mimeType: "image/jpeg", spaceID: space, ownsFile: false)
         // Once the first part is in, "kill" it: copy its folder as it is now.
-        for await e in events { if case .uploading(let sent, _) = e.state, sent > 0 { break } }
+        #expect(await waitFor(events, timeout: .seconds(60)) { if case .uploading(let sent, _) = $0.state { sent > 0 } else { false } })
         let relaunched = dir.appending(path: "relaunched")
         try FileManager.default.copyItem(at: dir.appending(path: "a"), to: relaunched)
         await first.wipeAll()

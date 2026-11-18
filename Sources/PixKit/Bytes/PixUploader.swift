@@ -56,7 +56,15 @@ public actor PixUploader: PixUploading {
     /// Read from the nonisolated `events()`, so behind a lock.
     private nonisolated let listeners = Listeners()
     private var runner: Task<Void, Never>?
-    private var current: (id: UUID, task: Task<Void, Never>)?
+    private var current: (id: UUID, task: Task<Attempt, Never>)?
+    /// Per job, in memory: when it's due again, its tries since it last
+    /// made progress, how many of those the server refused, and whether its
+    /// upload has been restarted once already.
+    private var due: [UUID: ContinuousClock.Instant] = [:]
+    private var tries: [UUID: Int] = [:]
+    private var serverFailures: [UUID: Int] = [:]
+    private var restarted: Set<UUID> = []
+    private var idle: Task<Void, Never>?
 
     public init(config: PixConfig) {
         self.init(account: config.currentUserID, client: PixBlobClient(config: config), base: config.storageDirectory)
@@ -152,34 +160,81 @@ public actor PixUploader: PixUploading {
 
     // MARK: Running
 
+    /// How many times the server may answer a job with a failure worth
+    /// retrying (5xx, 429, 408, 401) before the job fails. Tries that got no
+    /// answer at all (the network, or no token yet) don't count: they're
+    /// about the device, not the job.
+    static let maxServerFailures = 8
+
     private func kick() {
-        guard runner == nil else { return }
-        runner = Task { await self.drain() }
+        if runner == nil {
+            runner = Task { await self.drain() }
+        } else {
+            idle?.cancel() // a new or resumed job: stop waiting on the backoff
+        }
     }
 
+    /// Runs one try of the first job that's due, in queue order. A job that
+    /// has to wait goes to the back with a time it's due again, so one job
+    /// the server keeps failing never holds up the jobs behind it.
     private func drain() async {
-        while let id = order.first(where: { records[$0] != nil }) {
-            let task = Task { await self.run(id) }
+        while true {
+            let now = ContinuousClock.now
+            let live = order.filter { records[$0] != nil }
+            if live.isEmpty { break }
+            guard let id = live.first(where: { (due[$0] ?? now) <= now }) else {
+                let next = live.compactMap { due[$0] }.min() ?? now
+                let sleeper = Task { _ = try? await Task.sleep(until: next, clock: .continuous) }
+                idle = sleeper
+                await sleeper.value
+                idle = nil
+                continue
+            }
+            let task = Task { await self.attempt(id) }
             current = (id, task)
-            await task.value
+            let outcome = await task.value
             current = nil
-            // A job that returned without finishing (cancelled from outside
-            // already finished it) is never run twice.
-            if records[id] != nil, last[id]?.state.isFinal != true {
-                finish(id, .failed(.refused(reason: "STOPPED", message: "upload stopped")))
+            guard records[id] != nil else { continue } // finished (or cancelled from outside)
+            switch outcome {
+            case .ended:
+                // A try that returned without finishing is never left hanging.
+                if last[id]?.state.isFinal != true {
+                    finish(id, .failed(.refused(reason: "STOPPED", message: "upload stopped")))
+                }
+            case .retry(let err, let answered):
+                tries[id, default: 0] += 1
+                if answered {
+                    serverFailures[id, default: 0] += 1
+                    if serverFailures[id]! >= Self.maxServerFailures {
+                        finish(id, .failed(.from(err)))
+                        continue
+                    }
+                }
+                let n = tries[id]!
+                emit(id, .waiting(attempt: n))
+                due[id] = ContinuousClock.now + backoff(n)
+                order.removeAll { $0 == id }
+                order.append(id)
             }
         }
         runner = nil
     }
 
-    private func run(_ id: UUID) async {
-        var attempt = 0
-        var restarted = false
+    enum Attempt: Sendable {
+        /// The job finished (or was stopped from outside).
+        case ended
+        /// Try again later; `answered` when the server itself said no.
+        case retry(PixBlobError, answered: Bool)
+    }
+
+    /// One try at a job: from wherever the server is, to complete.
+    private func attempt(_ id: UUID) async -> Attempt {
         while !Task.isCancelled, var rec = records[id] {
             do {
                 let file = jobDir(id).appending(path: rec.fileName)
                 guard FileManager.default.fileExists(atPath: file.path) else {
-                    return finish(id, .failed(.fileMissing))
+                    finish(id, .failed(.fileMissing))
+                    return .ended
                 }
 
                 // 1. A server upload, new or resumed.
@@ -196,8 +251,8 @@ public actor PixUploader: PixUploading {
                     rec.uploadID = s.uploadId
                     rec.chunkSize = s.chunkSize
                     rec.chunkAlignment = s.chunkAlignment
+                    guard records[id] != nil else { return .ended } // cancelled meanwhile
                     try save(rec)
-                    guard records[id] != nil else { return } // cancelled while waiting
                     records[id] = rec
                 }
                 guard let up = rec.uploadID, let chunk = rec.chunkSize, chunk > 0 else {
@@ -213,7 +268,8 @@ public actor PixUploader: PixUploading {
                     try handle.seek(toOffset: UInt64(offset))
                     let n = Int(min(chunk, rec.size - offset))
                     guard let bytes = try handle.read(upToCount: n), bytes.count == n else {
-                        return finish(id, .failed(.fileMissing))
+                        finish(id, .failed(.fileMissing))
+                        return .ended
                     }
                     do {
                         let st = try await client.put(upload: up, offset: offset, bytes: bytes)
@@ -226,60 +282,69 @@ public actor PixUploader: PixUploading {
                     } catch let err as PixBlobError where err.reason == "UPLOAD_COMPLETED" {
                         offset = rec.size
                     }
-                    attempt = 0
+                    // Progress resets the count: a job that moves isn't stuck.
+                    tries[id] = nil
+                    serverFailures[id] = nil
                     emit(id, .uploading(sent: offset, total: rec.size))
                 }
 
                 // 3. Settle.
                 emit(id, .processing)
                 let done = try await completeRetryingBusy(up)
-                return finish(id, .completed(itemID: done.itemId, outcome: done.status))
+                finish(id, .completed(itemID: done.itemId, outcome: done.status))
+                return .ended
 
             } catch is CancellationError {
-                return
+                return .ended
             } catch let err as PixBlobError {
-                switch err.reason {
-                case "UPLOAD_NOT_FOUND" where !restarted:
+                if err.reason == "UPLOAD_NOT_FOUND", !restarted.contains(id) {
                     // Expired or reaped: start over once, from the first byte.
-                    restarted = true
+                    restarted.insert(id)
                     rec.uploadID = nil
                     rec.chunkSize = nil
+                    guard records[id] != nil else { return .ended }
                     try? save(rec)
-                    if records[id] != nil { records[id] = rec }
+                    records[id] = rec
                     continue
-                default:
-                    if Self.retryable(err) {
-                        attempt += 1
-                        emit(id, .waiting(attempt: attempt))
-                        try? await Task.sleep(for: backoff(attempt))
-                        continue
-                    }
-                    return finish(id, .failed(.from(err)))
                 }
+                if Self.retryable(err) {
+                    return .retry(err, answered: Self.serverAnswered(err))
+                }
+                finish(id, .failed(.from(err)))
+                return .ended
             } catch let err as URLError where err.code != .cancelled {
-                attempt += 1
-                emit(id, .waiting(attempt: attempt))
-                try? await Task.sleep(for: backoff(attempt))
-                continue
+                return .retry(.transport(err.localizedDescription), answered: false)
             } catch {
-                if Task.isCancelled { return }
-                return finish(id, .failed(.refused(reason: "CLIENT", message: error.localizedDescription)))
+                if Task.isCancelled { return .ended }
+                finish(id, .failed(.refused(reason: "CLIENT", message: error.localizedDescription)))
+                return .ended
             }
         }
+        return .ended
     }
 
     /// Worth another try by itself: no answer, the server or proxy failing,
-    /// rate limiting, or an expired token (the provider refreshes it; a
-    /// sign-out ends the jobs through wipeAll, so this never spins forever).
+    /// rate limiting, or an expired token (the provider refreshes it).
     static func retryable(_ err: PixBlobError) -> Bool {
         guard let status = err.status else { return true }
         return status >= 500 || status == 429 || status == 408 || status == 401
     }
 
+    /// The server itself refused (counts toward maxServerFailures), as
+    /// opposed to no answer or no token on the device.
+    static func serverAnswered(_ err: PixBlobError) -> Bool {
+        if case .server = err { return true }
+        return false
+    }
+
+    /// Complete, asked again while another complete of ours (a lost answer)
+    /// is still processing: the server bounds that at 10 minutes.
     private func completeRetryingBusy(_ up: UUID) async throws -> PixBlobClient.Completed {
+        var busy = 0
         while true {
             do { return try await client.complete(upload: up) } catch let err as PixBlobError where err.reason == "UPLOAD_BUSY" {
-                // Another complete is still processing it (our own lost try).
+                busy += 1
+                if busy > 330 { throw err } // ~11 minutes: past the server's bound
                 try await Task.sleep(for: .seconds(2))
             }
         }
@@ -295,6 +360,10 @@ public actor PixUploader: PixUploading {
         records[id] = nil
         order.removeAll { $0 == id }
         last[id] = nil
+        due[id] = nil
+        tries[id] = nil
+        serverFailures[id] = nil
+        restarted.remove(id)
         if let current, current.id == id { current.task.cancel() }
         try? FileManager.default.removeItem(at: jobDir(id))
     }

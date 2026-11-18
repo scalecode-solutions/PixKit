@@ -151,6 +151,10 @@ final class FakeProtocol: URLProtocol, @unchecked Sendable {
             return
         }
         let body = request.httpBody ?? request.httpBodyStream.map(Self.read) ?? Data()
+        // URLSession hands a body over as a stream; give the handler (and
+        // the test's inject) the request with its body in place.
+        var request = self.request
+        request.httpBody = body.isEmpty ? nil : body
         do {
             let reply = try server.handle(request, body: body)
             let (drop, n) = server.lock.withLock { (server.dropReply, server.requestCount) }
