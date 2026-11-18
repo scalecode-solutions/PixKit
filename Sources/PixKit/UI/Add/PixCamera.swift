@@ -14,6 +14,8 @@ final class PixCameraSession: NSObject, @unchecked Sendable {
     // Guarded by `queue`.
     private var photoWaiter: CheckedContinuation<Data, Error>?
     private var movieWaiter: CheckedContinuation<URL, Error>?
+    /// A recording that ended before anyone waited for it.
+    private var movieResult: Result<URL, Error>?
 
     private func onQueue<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { c in
@@ -99,6 +101,7 @@ final class PixCameraSession: NSObject, @unchecked Sendable {
     func startRecording(to url: URL, angle: CGFloat) async throws {
         try await onQueue { [self] in
             guard !movieOutput.isRecording else { return }
+            movieResult = nil
             if let conn = movieOutput.connection(with: .video), conn.isVideoRotationAngleSupported(angle) {
                 conn.videoRotationAngle = angle
             }
@@ -110,7 +113,11 @@ final class PixCameraSession: NSObject, @unchecked Sendable {
     func finished() async throws -> URL {
         try await withCheckedThrowingContinuation { c in
             queue.async { [self] in
-                guard movieOutput.isRecording || movieWaiter == nil else { return c.resume(throwing: PixCaptureError.unavailable) }
+                if let done = movieResult {
+                    movieResult = nil
+                    return c.resume(with: done)
+                }
+                guard movieWaiter == nil else { return c.resume(throwing: PixCaptureError.unavailable) }
                 movieWaiter = c
             }
         }
@@ -139,14 +146,15 @@ extension PixCameraSession: AVCaptureFileOutputRecordingDelegate {
         // Reaching the cap reports an error but the file is complete.
         let ok = error == nil
             || ((error as NSError?)?.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool ?? false)
+        let result: Result<URL, Error> = ok ? .success(url) : .failure(error ?? PixCaptureError.unavailable)
+        if !ok { PixCapture.discard(url) }
         queue.async { [self] in
-            if ok {
-                movieWaiter?.resume(returning: url)
+            if let waiter = movieWaiter {
+                movieWaiter = nil
+                waiter.resume(with: result)
             } else {
-                PixCapture.discard(url)
-                movieWaiter?.resume(throwing: error ?? PixCaptureError.unavailable)
+                movieResult = result // finished() collects it
             }
-            movieWaiter = nil
         }
     }
 }
