@@ -14,7 +14,7 @@ public struct PixConfig: Sendable {
     public let storageDirectory: URL?
     /// Wraps every camera, microphone and photo-library permission request the
     /// kit makes. A system prompt makes the app inactive; a host that locks or
-    /// covers itself when that happens can stand down for the prompt here.
+    /// hides itself when that happens can stand down for the prompt here.
     /// nil → the request runs as is.
     public let systemPrompt: (@Sendable (@escaping @Sendable () async -> Bool) async -> Bool)?
     // No notifications of any kind: nothing in a space announces itself
