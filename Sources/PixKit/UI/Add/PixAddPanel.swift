@@ -60,6 +60,7 @@ struct PixAddPanel: View {
             PixCameraView(config: config) { result in
                 showCamera = false
                 guard let (url, mime) = result else { return }
+                problem = nil
                 Task { await send([(url, mime)]) }
             }
         }
@@ -79,7 +80,7 @@ struct PixAddPanel: View {
                     .buttonStyle(.borderless)
                     .accessibilityIdentifier("pix.add.clipDiscard")
                 Button("Add") {
-                    if let url = recorder.stop() { Task { await send([(url, "audio/mp4")]) } }
+                    if let url = recorder.stop() { problem = nil; Task { await send([(url, "audio/mp4")]) } }
                 }
                 .buttonStyle(.borderless).bold()
                 .accessibilityIdentifier("pix.add.clipStop")
@@ -117,12 +118,12 @@ struct PixAddPanel: View {
                 refused += 1
             }
         }
-        await send(files)
-        if refused > 0 {
-            problem = refused == 1
+        // Say what was left out before sending, so the sheet stays open to show it.
+        problem = refused == 0 ? nil
+            : refused == 1
                 ? String(localized: "One item couldn't be added (an unsupported type, or longer than 5 minutes).")
                 : String(localized: "\(refused) items couldn't be added (unsupported types, or longer than 5 minutes).")
-        }
+        await send(files)
     }
 
     /// Queue files; close once everything is queued.
