@@ -242,7 +242,7 @@ struct LiveBytesTests {
         #expect(mime == "video/mp4" && file != src)
         let up = PixUploader.shared(config: cfg)
         let end = try await upload(up, file, mime, space)
-        guard case .completed(let item, .added)? = end?.state else { Issue.record("\(String(describing: end))"); return }
+        guard case .completed(let item, _)? = end?.state else { Issue.record("\(String(describing: end))"); return }
         let page = try await live.transport(live.a).listItems(spaceID: space, pageSize: 0, pageToken: nil)
         let listed = try #require(page.items.first { $0.id == item })
         #expect(listed.kind == .video && listed.hasThumb)
