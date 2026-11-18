@@ -107,10 +107,14 @@ public final class PixEngine {
         self.transport = transport ?? config.transport
         self.cache = cache
         self.uploader = uploader
-        // No add sheet can be open yet: anything left in the capture folder
-        // is from a kill mid-capture (MVCALE-90).
-        PixCapture.sweep(config)
+        // No sweep here: a SwiftUI host can build engines it throws away (a
+        // re-render), while an add sheet is open. The live engine sweeps once,
+        // in startUploads (Frond's review).
     }
+
+    /// The capture folder has been swept by this engine (or must no longer be:
+    /// an add came first).
+    private var swept = false
 
     /// Page size for items. The server's max is 500; a screenful or two is plenty.
     var pageSize = 120
@@ -326,6 +330,17 @@ public final class PixEngine {
     /// Start listening to the uploader and pick up the jobs a previous launch
     /// left. Idempotent; `wipe()` stops it.
     public func startUploads() async {
+        // The host calls this as the spaces come on screen, before any add
+        // sheet can exist: anything in the capture folder now is an orphan (a
+        // kill mid-capture). Once, and never after an add has begun.
+        if !swept {
+            swept = true
+            PixCapture.sweep(config)
+        }
+        await listen()
+    }
+
+    private func listen() async {
         guard let uploader, listening == nil else { return }
         let gen = generation
         // Listen first: the stream carries events from the moment of the call,
@@ -357,7 +372,9 @@ public final class PixEngine {
             notify(String(localized: "That space isn't available any more."))
             return false
         }
-        if listening == nil { await startUploads() }
+        // An add means a sheet wrote this file: never sweep after it.
+        swept = true
+        if listening == nil { await listen() }
         let gen = generation
         do {
             let id = try await uploader.enqueue(file: file, mimeType: mimeType, spaceID: spaceID, ownsFile: ownsFile)
@@ -506,6 +523,7 @@ public final class PixEngine {
         listening?.cancel()
         listening = nil
         PixCapture.sweep(config)
+        swept = false
         if let cache { Task { await cache.wipeAll() } }
         if let uploader { Task { await uploader.wipeAll() } }
     }

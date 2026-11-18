@@ -1,4 +1,5 @@
 import AVFoundation
+import Synchronization
 import Foundation
 import Testing
 import UIKit
@@ -140,16 +141,43 @@ struct CaptureSweepTests {
         try? FileManager.default.removeItem(at: root)
     }
 
-    @Test func aNewEngineSweepsOrphans() throws {
+    @Test func makingAnEngineTouchesNothing() throws {
+        // A host may build engines it throws away while a sheet is open.
+        let user = UUID()
+        let live = try PixCapture.newFile(config(user), ext: "mov")
+        try Data([1]).write(to: live)
+        _ = PixEngine(config: config(user))
+        #expect(FileManager.default.fileExists(atPath: live.path()))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func theFirstStartUploadsSweepsOrphansOnce() async throws {
         let user = UUID()
         let orphan = try PixCapture.newFile(config(user), ext: "mov")
         try Data([1]).write(to: orphan)
         let other = try PixCapture.newFile(config(UUID()), ext: "mov")
         try Data([1]).write(to: other)
-        _ = PixEngine(config: config(user))
+        let engine = PixEngine(config: config(user))
+        await engine.startUploads()
         #expect(!FileManager.default.fileExists(atPath: orphan.path()))
         // Someone else's folder isn't this engine's to sweep.
         #expect(FileManager.default.fileExists(atPath: other.path()))
+        // A later call (the screen coming back) leaves a sheet's file alone.
+        let live = try PixCapture.newFile(config(user), ext: "jpg")
+        try Data([1]).write(to: live)
+        await engine.startUploads()
+        #expect(FileManager.default.fileExists(atPath: live.path()))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func anAddBeforeStartUploadsIsNeverSwept() async throws {
+        let user = UUID()
+        let engine = PixEngine(config: config(user), transport: nil, cache: nil, uploader: NoUploader())
+        let file = try PixCapture.newFile(config(user), ext: "jpg")
+        try Data([1]).write(to: file)
+        _ = await engine.add(file: file, mimeType: "image/jpeg", to: UUID(), ownsFile: true)
+        await engine.startUploads()
+        #expect(await NoUploader.sawFile(file))
         try? FileManager.default.removeItem(at: root)
     }
 
@@ -188,4 +216,22 @@ struct CaptureSweepTests {
         #endif
         try? FileManager.default.removeItem(at: root)
     }
+}
+
+/// An uploader that records whether the file it was handed still existed
+/// after the engine went on to startUploads.
+actor NoUploader: PixUploading {
+    static let seen = Mutex<[URL]>([])
+    static func sawFile(_ url: URL) async -> Bool {
+        seen.withLock { $0.contains(url) } && FileManager.default.fileExists(atPath: url.path())
+    }
+    func enqueue(file: URL, mimeType: String, spaceID: UUID, ownsFile: Bool) async throws -> PixUploadID {
+        Self.seen.withLock { $0.append(file) }
+        return UUID()
+    }
+    nonisolated func events() -> AsyncStream<PixUploadEvent> { AsyncStream { _ in } }
+    func cancel(_ id: PixUploadID) async {}
+    func resumeOnLaunch() async -> [PixUploadEvent] { [] }
+    func forgetSpace(_ spaceID: UUID) async {}
+    func wipeAll() async {}
 }
