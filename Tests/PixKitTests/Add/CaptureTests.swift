@@ -107,7 +107,7 @@ struct CaptureTests {
     }
 
     @Test func permissionPromptsGoThroughTheHost() async {
-        let seen = Counter()
+        let seen = PromptCounter()
         let hosted = PixConfig(baseURL: URL(string: "http://localhost:1")!, currentUserID: UUID(), tokenProvider: { nil },
                                systemPrompt: { request in await seen.bump(); return await request() })
         #expect(await hosted.prompt { true })
@@ -117,7 +117,7 @@ struct CaptureTests {
     }
 }
 
-actor Counter {
+actor PromptCounter {
     var value = 0
     func bump() { value += 1 }
 }
