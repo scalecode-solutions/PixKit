@@ -140,7 +140,10 @@ final class LabKit {
 
 /// How many files the kit keeps on this device for the account (cache,
 /// upload journal, captures, share copies): the check that sign-out leaves
-/// nothing behind. Counted on appear, on tap, and after sign-out.
+/// nothing behind. Counted on appear, on tap, and after sign-out. It looks
+/// only in the default Caches / Application Support roots, which is where the
+/// Lab keeps them (no storageDirectory): for a host with its own directory a
+/// 0 here proves nothing.
 struct LabKitFiles: View {
     static let recount = Notification.Name("LabKitFiles.recount")
     let config: PixConfig

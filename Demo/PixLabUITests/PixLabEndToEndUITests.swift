@@ -141,5 +141,10 @@ final class PixLabEndToEndUITests: XCTestCase {
         while Date() < empty, (files.value as? String) != "0" { usleep(300_000); if (files.value as? String) != "0" { files.tap() } }
         shot("signed-out")
         XCTAssertEqual(files.value as? String, "0", "kit files after sign-out")
+        // And nothing comes back (the Spaces tab is still alive behind this one).
+        sleep(3)
+        files.tap()
+        sleep(1)
+        XCTAssertEqual(files.value as? String, "0", "kit files 3 s after sign-out")
     }
 }
