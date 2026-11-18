@@ -16,6 +16,10 @@ struct PixAddPanel: View {
     @State private var showCamera = false
     @State private var recorder: PixClipRecorder
     @State private var working = 0
+    /// 0…1 while a video is being made smaller.
+    @State private var compressing: Double?
+    /// The picker or camera work in flight, cancelled when the sheet closes.
+    @State private var job: Task<Void, Never>?
     @State private var problem: String?
 
     init(config: PixConfig, add: @escaping (URL, String) async -> Bool, close: @escaping () -> Void) {
@@ -46,7 +50,19 @@ struct PixAddPanel: View {
                     Text(problem).foregroundStyle(.red).accessibilityIdentifier("pix.add.problem")
                 }
             }
-            .overlay { if working > 0 { ProgressView().controlSize(.large) } }
+            .overlay {
+                if let compressing {
+                    VStack(spacing: 10) {
+                        ProgressView(value: compressing).frame(width: 180)
+                        Text("Preparing video…").font(.footnote).foregroundStyle(.secondary)
+                    }
+                    .padding(20)
+                    .background(.regularMaterial, in: .rect(cornerRadius: 16))
+                    .accessibilityIdentifier("pix.add.compressing")
+                } else if working > 0 {
+                    ProgressView().controlSize(.large)
+                }
+            }
             .navigationTitle("Add")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -57,17 +73,32 @@ struct PixAddPanel: View {
         .onChange(of: picked) { _, items in
             guard !items.isEmpty else { return }
             picked = []
-            Task { await addPicked(items) }
+            job = Task { await addPicked(items) }
         }
         .fullScreenCover(isPresented: $showCamera) {
             PixCameraView(config: config) { result in
                 showCamera = false
                 guard let (url, mime) = result else { return }
                 problem = nil
-                Task { await send([(url, mime)]) }
+                job = Task {
+                    guard mime.hasPrefix("video/") else { return await send([(url, mime)]) }
+                    working += 1
+                    defer { working -= 1; compressing = nil }
+                    do {
+                        let ready = try await PixCapture.preparedVideo(url, config: config, progress: progressSink())
+                        await send([ready])
+                    } catch {
+                        PixCapture.discard(url)
+                        if !Task.isCancelled { problem = (error as? PixCaptureError ?? .unavailable).message }
+                    }
+                }
             }
         }
-        .onDisappear { recorder.cancel() }
+        .onDisappear {
+            recorder.cancel()
+            // Closing stops a video still being prepared; its file is thrown away.
+            job?.cancel()
+        }
     }
 
     @ViewBuilder private var clip: some View {
@@ -114,12 +145,20 @@ struct PixAddPanel: View {
         defer { working -= 1 }
         var files: [(URL, String)] = []
         var refused = 0
+        defer { compressing = nil }
         for item in items {
+            if Task.isCancelled { break }
             do {
-                files.append(try await PixPicked.file(item, config: config))
+                files.append(try await PixPicked.file(item, config: config, progress: progressSink()))
             } catch {
-                refused += 1
+                if !Task.isCancelled { refused += 1 }
             }
+            compressing = nil
+        }
+        // Closed meanwhile: nothing goes up, nothing stays behind.
+        if Task.isCancelled {
+            for (url, _) in files { PixCapture.discard(url) }
+            return
         }
         // Say what was left out before sending, so the sheet stays open to show it.
         problem = refused == 0 ? nil
@@ -127,6 +166,13 @@ struct PixAddPanel: View {
                 ? String(localized: "One item couldn't be added (an unsupported type, over 5 minutes, or over 1 GB).")
                 : String(localized: "\(refused) items couldn't be added (unsupported types, over 5 minutes, or over 1 GB).")
         await send(files)
+    }
+
+    /// Progress from the compressor (any thread) onto the sheet.
+    private func progressSink() -> @Sendable (Double) -> Void {
+        // A late tick (after the work ended) must not bring the bar back.
+        let set = { @MainActor (p: Double) in if working > 0 { compressing = p } }
+        return { p in Task { @MainActor in set(p) } }
     }
 
     /// Queue files; close once everything is queued.
@@ -149,7 +195,8 @@ struct PixAddPanel: View {
 
 /// Turning a library pick into a capture file.
 enum PixPicked {
-    static func file(_ item: PhotosPickerItem, config: PixConfig) async throws -> (URL, String) {
+    static func file(_ item: PhotosPickerItem, config: PixConfig,
+                     progress: (@Sendable (Double) -> Void)? = nil) async throws -> (URL, String) {
         let types = item.supportedContentTypes
         if types.contains(where: { $0.conforms(to: .movie) }) {
             guard let movie = try await item.loadTransferable(type: PickedMovie.self) else { throw PixCaptureError.unavailable }
@@ -164,7 +211,7 @@ enum PixPicked {
             }
             PixCapture.protect(dest)
             do {
-                return (dest, try await PixCapture.timedFile(dest))
+                return try await PixCapture.preparedVideo(dest, config: config, progress: progress)
             } catch {
                 PixCapture.discard(dest)
                 throw error

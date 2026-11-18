@@ -95,16 +95,46 @@ public enum PixCapture {
     }
 
     /// A picked or recorded movie or clip: its MIME type, refusing what the
-    /// server wouldn't keep (an unknown type, or longer than `maxDuration`).
+    /// server wouldn't keep (an unknown type, longer than `maxDuration`, or
+    /// over `maxBytes`).
     static func timedFile(_ url: URL) async throws -> String {
+        // Size first: it's free, and a file over the limit isn't worth opening.
+        try checkSize(url)
+        return try await timedType(url)
+    }
+
+    /// The type and length checks alone: cheap, so they come before a video
+    /// is compressed (a clip that's too long is refused without exporting it).
+    static func timedType(_ url: URL) async throws -> String {
         guard let type = UTType(filenameExtension: url.pathExtension), let mime = mimeType(for: type) else {
             throw PixCaptureError.unsupported
         }
-        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        if Int64(size) > maxBytes { throw PixCaptureError.tooLarge }
         let seconds = try await AVURLAsset(url: url).load(.duration).seconds
         if seconds.isFinite, seconds > maxDuration + 10 { throw PixCaptureError.tooLong }
         return mime
+    }
+
+    static func checkSize(_ url: URL) throws {
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        if Int64(size) > maxBytes { throw PixCaptureError.tooLarge }
+    }
+
+    /// A video ready to queue: type and length first, then compressed down to
+    /// 1080p when it's bigger (PixVideoCompressor), then the size the server
+    /// takes. On a throw the caller still owns `url` and throws it away; on
+    /// success the source may have been replaced by the compressed file.
+    static func preparedVideo(_ url: URL, config: PixConfig,
+                              progress: (@Sendable (Double) -> Void)? = nil) async throws -> (URL, String) {
+        let mime = try await timedType(url)
+        let (out, outMime) = try await PixVideoCompressor.prepare(url, mimeType: mime, config: config, progress: progress)
+        protect(out)
+        do {
+            try checkSize(out)
+        } catch {
+            if out != url { discard(out) }
+            throw error
+        }
+        return (out, outMime)
     }
 }
 
