@@ -232,6 +232,26 @@ struct LiveBytesTests {
         #expect(try Data(contentsOf: try await cache.file(item: item, spaceID: space, thumb: false)) == whole)
     }
 
+    @Test func aCompressedVideoIsTakenAsAVideo() async throws {
+        let live = try #require(LiveBytes.env)
+        let space = try await space(live)
+        let cfg = live.config(live.a, dir: dir.appending(path: "a"))
+        // A 1440p clip, made smaller exactly as the add sheet does it.
+        let src = try await VideoCompressorTests().clip(width: 2560, height: 1440, seconds: 3)
+        let (file, mime) = try await PixVideoCompressor.prepare(src, mimeType: "video/quicktime", config: cfg)
+        #expect(mime == "video/mp4" && file != src)
+        let up = PixUploader.shared(config: cfg)
+        let end = try await upload(up, file, mime, space)
+        guard case .completed(let item, .added)? = end?.state else { Issue.record("\(String(describing: end))"); return }
+        let page = try await live.transport(live.a).listItems(spaceID: space, pageSize: 0, pageToken: nil)
+        let listed = try #require(page.items.first { $0.id == item })
+        #expect(listed.kind == .video && listed.hasThumb)
+        #expect(listed.duration.map { abs($0.components.seconds - 3) <= 1 } == true, "\(String(describing: listed.duration))")
+        #expect(max(listed.width, listed.height) <= Int(PixVideoCompressor.maxSide), "\(listed.width)x\(listed.height)")
+        let thumb = try await PixMediaCache.shared(config: cfg).file(item: item, spaceID: space, thumb: true)
+        #expect(UIImage(contentsOfFile: thumb.path) != nil)
+    }
+
     @Test func aDeletedItemLeavesTheCache() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
