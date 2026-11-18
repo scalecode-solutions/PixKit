@@ -405,7 +405,7 @@ struct PixShareButton: View {
             }
         }
         .accessibilityIdentifier("pix.viewer.share")
-        // Only where the (encrypted-at-rest) cached file is; nothing is copied yet.
+        // Only where the cached file is; nothing is copied yet.
         .task(id: item.id) { source = try? await engine.file(for: item) }
     }
 }
