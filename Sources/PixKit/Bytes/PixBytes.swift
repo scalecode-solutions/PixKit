@@ -1,6 +1,6 @@
 import Foundation
 
-// The bytes seams (MVCALE-88, agreed in #mvcalendar r46075/r46100/r46114):
+// The bytes seams (MVCALE-88):
 // the uploader owns the bytes, the journal and resume; the engine owns the
 // queue rows the UI shows and mirrors them from one `events()` stream; the
 // cache owns files on disk. Implementations: PixUploader, PixMediaCache.
@@ -120,7 +120,7 @@ extension PixKind {
     /// The kind the server gives this MIME type (mvPix media.KindOf), or nil
     /// when the server won't take it.
     public init?(mimeType: String) {
-        switch mimeType.trimmingCharacters(in: .whitespaces).lowercased() {
+        switch mimeType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "image/jpeg", "image/png", "image/heic", "image/heif": self = .photo
         case "video/mp4", "video/quicktime": self = .video
         case "audio/mp4", "audio/x-m4a", "audio/aac", "audio/mpeg": self = .audio
