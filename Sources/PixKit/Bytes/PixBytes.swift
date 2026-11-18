@@ -17,6 +17,8 @@ public protocol PixUploading: Sendable {
     /// `mimeType` is what the server sorts by (PixKind(mimeType:)).
     func enqueue(file: URL, mimeType: String, spaceID: UUID, ownsFile: Bool) async throws -> PixUploadID
     /// Every job's events from the moment of the call, one stream for all.
+    /// A job starts as soon as it's queued, so its events (even its final
+    /// one, for a tiny file or a re-add) may arrive before `enqueue` returns.
     func events() -> AsyncStream<PixUploadEvent>
     /// Stops a job and drops its staged file. The server's half-upload is
     /// left to its reaper (there is no delete route). Emits `.cancelled`.
