@@ -15,8 +15,8 @@ struct ContentView: View {
 
     @ViewBuilder private var content: some View {
         #if DEBUG
-        if let dev = DevSignIn.fromEnvironment() {
-            PixLabHost(userID: dev.user, server: .local, tokenProvider: { dev.token }, signOut: {})
+        if let dev = DevSignIn.fromEnvironment(), let user = UUID(uuidString: dev.user) {
+            PixLabHost(userID: user, server: .local, tokenProvider: { dev.token }, signOut: {})
         } else {
             signedIn
         }
@@ -28,10 +28,18 @@ struct ContentView: View {
     @ViewBuilder private var signedIn: some View {
         switch auth.state {
         case .loggedIn(let profile):
-            PixLabHost(userID: profile.userID, server: auth.server,
-                       tokenProvider: { [auth] in await auth.accessToken() },
-                       signOut: { auth.logOut() })
-                .id(profile.userID) // a fresh kit per identity
+            if let user = UUID(uuidString: profile.userID) {
+                PixLabHost(userID: user, server: auth.server,
+                           tokenProvider: { [auth] in await auth.accessToken() },
+                           signOut: { auth.logOut() })
+                    .id(user) // a fresh kit per identity
+            } else {
+                // A profile id is always a UUID; anything else must not become
+                // a random account with its own storage.
+                ContentUnavailableView("This account's id can't be used", systemImage: "exclamationmark.triangle",
+                                       description: Text(profile.userID))
+                    .overlay(alignment: .bottom) { Button("Sign out") { auth.logOut() }.padding() }
+            }
         default:
             LoginView(auth: auth)
         }
@@ -66,17 +74,17 @@ struct DevSignIn {
 /// shows the shell. Until PixEngine (C3) and the space UI (C4) land, the shell
 /// talks to the transport directly.
 struct PixLabHost: View {
-    let userID: String
+    let userID: UUID
     let server: LabServer
     let signOut: () -> Void
     let config: PixConfig
 
-    init(userID: String, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?, signOut: @escaping () -> Void) {
+    init(userID: UUID, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?, signOut: @escaping () -> Void) {
         self.userID = userID
         self.server = server
         self.signOut = signOut
         self.config = PixConfig(baseURL: server.pixBaseURL,
-                                currentUserID: UUID(uuidString: userID) ?? UUID(),
+                                currentUserID: userID,
                                 tokenProvider: tokenProvider)
     }
 
@@ -87,8 +95,10 @@ struct PixLabHost: View {
     /// PixLab's own rows.
     private var account: some View {
         Section("Account") {
-            LabeledContent("User ID") { Text(userID).font(.caption.monospaced()).textSelection(.enabled) }
+            LabeledContent("User ID") { Text(userID.uuidString.lowercased()).font(.caption.monospaced()).textSelection(.enabled) }
             LabeledContent("Server", value: server.rawValue)
+            // TODO(C3/C4): engine.wipe() here, before signOut, once the engine is
+            // wired in (cache + upload journal under PixKit/<account>).
             Button("Sign out", role: .destructive) { signOut() }
         }
     }
