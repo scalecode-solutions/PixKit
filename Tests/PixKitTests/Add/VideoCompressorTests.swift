@@ -5,7 +5,10 @@ import Testing
 @testable import PixKit
 
 /// The video compressor against clips made here (AVAssetWriter, H.264).
-@Suite struct VideoCompressorTests {
+/// Serialized: the simulator's software encoder fails exports run side by
+/// side (the compressor then falls back to the original, as designed), which
+/// made the "brought down" tests flaky.
+@Suite(.serialized) struct VideoCompressorTests {
     let config: PixConfig
     /// The account's capture folder, where sources wait and exports land.
     let dir: URL
