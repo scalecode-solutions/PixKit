@@ -1,6 +1,7 @@
 import SwiftUI
 import AVKit
 import Photos
+import UniformTypeIdentifiers
 
 /// The full-screen viewer: swipe through a space's items; zoom photos, play
 /// videos and voice clips. Anyone in the space can save a photo or video to
@@ -133,7 +134,7 @@ struct PixViewer: View {
         Task {
             do {
                 let url = try await engine.file(for: item)
-                try await PixPhotos.save(url, kind: item.kind)
+                try await PixPhotos.save(url, kind: item.kind, mimeType: item.mimeType)
                 flash(String(localized: "Saved to Photos"))
             } catch PixPhotos.Failure.notAllowed {
                 flash(String(localized: "Allow adding to Photos in Settings"))
@@ -165,7 +166,7 @@ struct PixViewerPage: View {
             if let url {
                 switch item.kind {
                 case .photo: PixZoomablePhoto(url: url, chromeHidden: $chromeHidden)
-                case .video: PixVideoPage(url: url)
+                case .video: PixVideoPage(url: url, mimeType: item.mimeType)
                 case .audio: PixAudioPage(url: url, duration: item.duration)
                 }
             } else if failed {
@@ -249,11 +250,48 @@ struct PixZoomablePhoto: View {
 /// A video with the system's controls. Stops when its page goes away.
 struct PixVideoPage: View {
     let url: URL
+    let mimeType: String
     @State private var player: AVPlayer?
+    @State private var unplayable = false
+    /// Videos start muted (Travis, 2026-11-18); one tap unmutes.
+    @State private var muted = true
 
     var body: some View {
         VideoPlayer(player: player)
-            .onAppear { if player == nil { player = AVPlayer(url: url) } }
+            .overlay(alignment: .bottomTrailing) {
+                if player != nil, !unplayable {
+                    Button {
+                        muted.toggle()
+                        player?.isMuted = muted
+                    } label: {
+                        Image(systemName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(.black.opacity(0.45), in: Circle())
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 96)
+                    .accessibilityLabel(muted ? String(localized: "Unmute") : String(localized: "Mute"))
+                    .accessibilityIdentifier("pix.video.mute")
+                }
+            }
+            .overlay {
+                if unplayable {
+                    ContentUnavailableView(String(localized: "Can't play this video"), systemImage: "video.slash")
+                        .foregroundStyle(.white)
+                }
+            }
+            .task(id: url) {
+                guard player == nil else { return }
+                // Cached files have no extension: without the type AVFoundation
+                // refuses them ("This media format is not supported").
+                let asset = AVURLAsset(url: url, options: [AVURLAssetOverrideMIMETypeKey: mimeType])
+                let p = AVPlayer(playerItem: AVPlayerItem(asset: asset))
+                p.isMuted = muted
+                player = p
+                unplayable = (try? await asset.load(.isPlayable)) != true
+            }
             .onDisappear { player?.pause() }
     }
 }
@@ -347,7 +385,30 @@ struct PixShareButton: View {
             }
         }
         .accessibilityIdentifier("pix.viewer.share")
-        .task(id: item.id) { url = try? await engine.file(for: item) }
+        .task(id: item.id) {
+            guard let cached = try? await engine.file(for: item) else { return }
+            url = PixShareFile.named(cached, mimeType: item.mimeType, base: String(localized: "Voice clip"))
+        }
+    }
+}
+
+/// A shareable copy of a cached file: cached files are named by item id with
+/// no extension, which a share sheet can't make sense of. Lives in tmp; the
+/// next share of the same item replaces it.
+enum PixShareFile {
+    static func named(_ cached: URL, mimeType: String, base: String) -> URL? {
+        let ext = UTType(mimeType: mimeType)?.preferredFilenameExtension ?? "m4a"
+        let dir = FileManager.default.temporaryDirectory.appending(path: "PixKit-share", directoryHint: .isDirectory)
+            .appending(path: cached.lastPathComponent, directoryHint: .isDirectory)
+        let out = dir.appending(path: base + "." + ext)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: out)
+            try FileManager.default.copyItem(at: cached, to: out)
+            return out
+        } catch {
+            return nil
+        }
     }
 }
 
@@ -355,7 +416,7 @@ enum PixPhotos {
     enum Failure: Error { case notAllowed, notMedia }
 
     /// Adds a photo or video to the person's library (add-only access).
-    static func save(_ url: URL, kind: PixKind) async throws {
+    static func save(_ url: URL, kind: PixKind, mimeType: String) async throws {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else { throw Failure.notAllowed }
         let type: PHAssetResourceType
@@ -367,6 +428,8 @@ enum PixPhotos {
         try await PHPhotoLibrary.shared().performChanges {
             let options = PHAssetResourceCreationOptions()
             options.shouldMoveFile = false
+            // Cached files have no extension: say what it is.
+            options.uniformTypeIdentifier = UTType(mimeType: mimeType)?.identifier
             PHAssetCreationRequest.forAsset().addResource(with: type, fileURL: url, options: options)
         }
     }

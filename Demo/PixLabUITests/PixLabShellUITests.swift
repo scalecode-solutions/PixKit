@@ -69,4 +69,55 @@ final class PixLabShellUITests: XCTestCase {
         XCTAssert(app.buttons["Rename"].waitForExistence(timeout: 5))
         shot("space-menu")
     }
+
+    /// The viewer, with real files: a photo, swiping, a video that AVFoundation
+    /// can open (cached files have no extension), and a voice clip that plays.
+    /// Read-only: nothing is saved, shared or deleted.
+    func testTheViewer() throws {
+        XCTAssert(app.navigationBars["Spaces"].waitForExistence(timeout: 10))
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'pix.space.'")).firstMatch
+        guard row.waitForExistence(timeout: 10) else { throw XCTSkip("this account has no space on the local stack") }
+        row.tap()
+        let items = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'pix.item.'"))
+        guard items.firstMatch.waitForExistence(timeout: 10) else { throw XCTSkip("the space is empty") }
+        sleep(3)
+        shot("grid")
+
+        let photo = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Photo'")).firstMatch
+        if photo.exists {
+            photo.tap()
+            XCTAssert(app.buttons["pix.viewer.close"].waitForExistence(timeout: 5))
+            sleep(2)
+            shot("viewer-photo")
+            app.swipeLeft()
+            sleep(1)
+            app.buttons["pix.viewer.close"].tap()
+        }
+
+        let video = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Video'")).firstMatch
+        if video.exists {
+            video.tap()
+            XCTAssert(app.buttons["pix.viewer.close"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.staticTexts["Can't play this video"].waitForExistence(timeout: 6))
+            // Videos start muted; one tap unmutes.
+            let mute = app.buttons["pix.video.mute"]
+            XCTAssert(mute.waitForExistence(timeout: 5))
+            XCTAssertEqual(mute.label, "Unmute")
+            shot("viewer-video")
+            mute.tap()
+            XCTAssertEqual(mute.label, "Mute")
+            app.buttons["pix.viewer.close"].tap()
+        }
+
+        let clip = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Voice clip'")).firstMatch
+        if clip.exists {
+            clip.tap()
+            let play = app.buttons["pix.audio.play"]
+            XCTAssert(play.waitForExistence(timeout: 10))
+            play.tap()
+            XCTAssert(app.buttons["Pause"].waitForExistence(timeout: 3))
+            shot("viewer-clip")
+            app.buttons["pix.viewer.close"].tap()
+        }
+    }
 }

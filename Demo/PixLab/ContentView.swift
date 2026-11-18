@@ -87,7 +87,9 @@ struct PixLabHost: View {
         self.config = PixConfig(baseURL: server.pixBaseURL,
                                 currentUserID: userID,
                                 tokenProvider: tokenProvider)
-        _engine = State(initialValue: PixEngine(config: config))
+        _engine = State(initialValue: PixEngine(config: config,
+                                                cache: PixMediaCache(config: config),
+                                                uploader: PixUploader(config: config)))
     }
 
     var body: some View {
@@ -99,8 +101,8 @@ struct PixLabHost: View {
         Section("Account") {
             LabeledContent("User ID") { Text(userID.uuidString.lowercased()).font(.caption.monospaced()).textSelection(.enabled) }
             LabeledContent("Server", value: server.rawValue)
-            // Sign-out wipes the kit first: its memory, and (once bytes are
-            // wired) the cache and upload journal under PixKit/<account>.
+            // Sign-out wipes the kit first: its memory, the cache and the
+            // upload journal under PixKit/<account>.
             Button("Sign out", role: .destructive) {
                 engine.wipe()
                 signOut()
