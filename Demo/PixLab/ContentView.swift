@@ -1,6 +1,7 @@
 import SwiftUI
 import PixKit
 import MvAuth
+import Combine
 
 struct ContentView: View {
     @State private var auth = AuthModel()
@@ -16,7 +17,7 @@ struct ContentView: View {
     @ViewBuilder private var content: some View {
         #if DEBUG
         if let dev = DevSignIn.fromEnvironment(), let user = UUID(uuidString: dev.user) {
-            PixLabHost(userID: user, server: .local, tokenProvider: { dev.token }, signOut: {})
+            PixLabHost(userID: user, server: .local, base: dev.base, tokenProvider: { dev.token }, signOut: {})
         } else {
             signedIn
         }
@@ -61,11 +62,17 @@ struct BlankScreen: View {
 struct DevSignIn {
     let token: String
     let user: String
+    /// PIX_DEV_BASE: another LOCAL mvPix (a throwaway server for tests that
+    /// write). Anything not on this machine is ignored.
+    let base: URL?
 
     static func fromEnvironment() -> DevSignIn? {
         let e = ProcessInfo.processInfo.environment
         guard let t = e["PIX_DEV_TOKEN"], let u = e["PIX_DEV_USER"], UUID(uuidString: u) != nil else { return nil }
-        return DevSignIn(token: t, user: u)
+        let base = e["PIX_DEV_BASE"].flatMap(URL.init(string:)).flatMap { url in
+            ["localhost", "127.0.0.1"].contains(url.host() ?? "") ? url : nil
+        }
+        return DevSignIn(token: t, user: u, base: base)
     }
 }
 #endif
@@ -85,11 +92,12 @@ struct PixLabHost: View {
     /// render would be wasteful at best.
     @State private var kit = LabKit()
 
-    init(userID: UUID, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?, signOut: @escaping () -> Void) {
+    init(userID: UUID, server: LabServer, base: URL? = nil,
+         tokenProvider: @escaping @Sendable () async -> String?, signOut: @escaping () -> Void) {
         self.userID = userID
         self.server = server
         self.signOut = signOut
-        self.config = PixConfig(baseURL: server.pixBaseURL,
+        self.config = PixConfig(baseURL: base ?? server.pixBaseURL,
                                 currentUserID: userID,
                                 tokenProvider: tokenProvider)
     }
@@ -104,12 +112,14 @@ struct PixLabHost: View {
     private var account: some View {
         Section("Account") {
             LabeledContent("User ID") { Text(userID.uuidString.lowercased()).font(.caption.monospaced()).textSelection(.enabled) }
-            LabeledContent("Server", value: server.rawValue)
+            LabeledContent("Server", value: config.baseURL.absoluteString)
+            LabKitFiles(config: config)
             // Sign-out wipes the kit first: its memory, the cache and the
             // upload journal under PixKit/<account>.
             Button("Sign out", role: .destructive) {
                 engine.wipe()
                 signOut()
+                NotificationCenter.default.post(name: LabKitFiles.recount, object: nil)
             }
         }
     }
@@ -125,5 +135,47 @@ final class LabKit {
         let e = PixEngine(config: config, cache: PixMediaCache.shared(config: config), uploader: PixUploader.shared(config: config))
         made = e
         return e
+    }
+}
+
+/// How many files the kit keeps on this device for the account (cache,
+/// upload journal, captures, share copies): the check that sign-out leaves
+/// nothing behind. Counted on appear, on tap, and after sign-out.
+struct LabKitFiles: View {
+    static let recount = Notification.Name("LabKitFiles.recount")
+    let config: PixConfig
+    @State private var count = 0
+
+    var body: some View {
+        Button {
+            Task { await refresh() }
+        } label: {
+            LabeledContent("Kit files", value: "\(count)")
+        }
+        .accessibilityIdentifier("lab.kitFiles")
+        .accessibilityValue("\(count)")
+        .task { await refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: Self.recount)) { _ in
+            Task {
+                // wipe() deletes in the background: give it a moment.
+                try? await Task.sleep(for: .seconds(1))
+                await refresh()
+            }
+        }
+    }
+
+    private func refresh() async {
+        let account = config.currentUserID.uuidString.lowercased()
+        let roots = [FileManager.SearchPathDirectory.cachesDirectory, .applicationSupportDirectory].compactMap {
+            FileManager.default.urls(for: $0, in: .userDomainMask).first?
+                .appending(path: "PixKit/\(account)", directoryHint: .isDirectory)
+        }
+        count = await Task.detached {
+            roots.reduce(0) { n, root in
+                guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey]) else { return n }
+                return n + e.compactMap { ($0 as? URL).flatMap { try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile } }
+                    .filter { $0 }.count
+            }
+        }.value
     }
 }

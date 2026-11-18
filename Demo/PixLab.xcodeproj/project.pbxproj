@@ -16,6 +16,7 @@
 		7C2B25EA9F3E19CE8F77ECDF /* PixKit in Frameworks */ = {isa = PBXBuildFile; productRef = 132D9102B01C21215F6CDDF2 /* PixKit */; };
 		D38D3E3C77E776C9C1B667C1 /* PixLabShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */; };
 		E1D1E0CC3F8E5CB169293A90 /* AuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */; };
+		FA88E361B6C07861DD683ED6 /* PixLabEndToEndUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 195508914EEFDDBE1EC45741 /* PixLabEndToEndUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,6 +31,7 @@
 
 /* Begin PBXFileReference section */
 		022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabShellUITests.swift; sourceTree = "<group>"; };
+		195508914EEFDDBE1EC45741 /* PixLabEndToEndUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabEndToEndUITests.swift; sourceTree = "<group>"; };
 		3BDCDCF3239E78B181208783 /* PixKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PixKit; path = ..; sourceTree = SOURCE_ROOT; };
 		79D0117D727893959426DC60 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModel.swift; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 		F38127D0E44A0A1662D0436F /* PixLabUITests */ = {
 			isa = PBXGroup;
 			children = (
+				195508914EEFDDBE1EC45741 /* PixLabEndToEndUITests.swift */,
 				022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */,
 			);
 			path = PixLabUITests;
@@ -192,6 +195,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA88E361B6C07861DD683ED6 /* PixLabEndToEndUITests.swift in Sources */,
 				D38D3E3C77E776C9C1B667C1 /* PixLabShellUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

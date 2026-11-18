@@ -21,3 +21,4 @@ against mvServer with MvAuth, or, in Debug against a local stack, with
 - Units: `xcodebuild test -scheme PixKit -destination 'platform=iOS Simulator,name=<sim>' -skip-testing:PixKitTests/LiveTransportTests`
 - Live (localhost only, a test account): `scripts/live-test.sh <user-uuid>`
 - UI: `scripts/ui-test.sh <user-uuid>` (`SIM=` picks the simulator)
+- End to end (writes; a throwaway local mvPix only): `BASE=http://localhost:<port> DB=<its postgres container> scripts/e2e-test.sh <user-uuid> <friend-uuid>`, after `xcrun simctl addmedia <sim>` with a photo and a video over 1080p
