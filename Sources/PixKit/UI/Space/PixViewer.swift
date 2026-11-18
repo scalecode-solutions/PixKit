@@ -57,11 +57,20 @@ struct PixViewer: View {
         } message: {
             Text(String(localized: "It disappears from this space for both of you."))
         }
-        .onChange(of: items.map(\.id)) { _, ids in
-            // The item on screen went away (deleted, or the space did).
+        .onChange(of: items.map(\.id)) { old, ids in
+            // The item on screen went away (deleted, or the space did): show
+            // its neighbour, the next one, else the one before.
             guard let current, !ids.contains(current) else { return }
-            if let next = ids.first { self.current = next } else { dismiss() }
+            guard !ids.isEmpty else { return dismiss() }
+            let at = old.firstIndex(of: current) ?? 0
+            self.current = ids[min(at, ids.count - 1)]
         }
+        .onChange(of: current) { _, id in
+            // Swiping onto the last loaded item fetches the next page.
+            guard let id, id == items.last?.id, engine.items[spaceID]?.hasMore == true else { return }
+            Task { await engine.loadMoreItems(spaceID) }
+        }
+        .onDisappear { PixShareFile.sweep(engine.config) }
         .onChange(of: engine.isGone(spaceID)) { _, gone in if gone { dismiss() } }
     }
 
@@ -134,7 +143,7 @@ struct PixViewer: View {
         Task {
             do {
                 let url = try await engine.file(for: item)
-                try await PixPhotos.save(url, kind: item.kind, mimeType: item.mimeType)
+                try await PixPhotos.save(url, kind: item.kind, mimeType: item.mimeType, config: engine.config)
                 flash(String(localized: "Saved to Photos"))
             } catch PixPhotos.Failure.notAllowed {
                 flash(String(localized: "Allow adding to Photos in Settings"))
@@ -167,7 +176,7 @@ struct PixViewerPage: View {
                 switch item.kind {
                 case .photo: PixZoomablePhoto(url: url, chromeHidden: $chromeHidden)
                 case .video: PixVideoPage(url: url, mimeType: item.mimeType)
-                case .audio: PixAudioPage(url: url, duration: item.duration)
+                case .audio: PixAudioPage(url: url, mimeType: item.mimeType, duration: item.duration)
                 }
             } else if failed {
                 ContentUnavailableView(String(localized: "Couldn't load it"), systemImage: "exclamationmark.triangle")
@@ -299,6 +308,7 @@ struct PixVideoPage: View {
 /// A voice clip: play/pause and a scrubber.
 struct PixAudioPage: View {
     let url: URL
+    let mimeType: String
     let duration: Duration?
     @State private var player: AVAudioPlayer?
     @State private var playing = false
@@ -337,18 +347,23 @@ struct PixAudioPage: View {
         }
         .onAppear {
             guard player == nil else { return }
-            player = try? AVAudioPlayer(contentsOf: url)
+            // Cached files have no extension: give the type, don't make it sniff.
+            player = try? AVAudioPlayer(contentsOf: url, fileTypeHint: UTType(mimeType: mimeType)?.identifier)
             player?.prepareToPlay()
             length = player?.duration ?? duration.map { Double($0.components.seconds) } ?? 0
         }
         .onDisappear {
             player?.stop()
             playing = false
+            PixAudioSession.release()
         }
         .task(id: playing) {
             while playing, !Task.isCancelled {
                 position = player?.currentTime ?? 0
-                if player?.isPlaying == false { playing = false }
+                if player?.isPlaying == false {
+                    playing = false
+                    PixAudioSession.release()
+                }
                 try? await Task.sleep(for: .milliseconds(200))
             }
         }
@@ -359,6 +374,7 @@ struct PixAudioPage: View {
         if player.isPlaying {
             player.pause()
             playing = false
+            PixAudioSession.release()
         } else {
             try? AVAudioSession.sharedInstance().setCategory(.playback)
             try? AVAudioSession.sharedInstance().setActive(true)
@@ -368,16 +384,20 @@ struct PixAudioPage: View {
     }
 }
 
-/// Shares a voice clip (Photos doesn't keep audio).
+/// Shares a voice clip (Photos doesn't keep audio). The named copy a share
+/// sheet needs is made only when the person shares, in the account's own
+/// folder, and swept when the viewer closes and on sign-out.
 struct PixShareButton: View {
     let engine: PixEngine
     let item: PixItem
-    @State private var url: URL?
+    @State private var source: URL?
 
     var body: some View {
         Group {
-            if let url {
-                ShareLink(item: url) {
+            if let source {
+                ShareLink(item: PixSharedClip(source: source, mimeType: item.mimeType, itemID: item.id,
+                                              folder: try? PixShareFile.folder(engine.config)),
+                          preview: SharePreview(String(localized: "Voice clip"))) {
                     Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
                 }
             } else {
@@ -385,30 +405,59 @@ struct PixShareButton: View {
             }
         }
         .accessibilityIdentifier("pix.viewer.share")
-        .task(id: item.id) {
-            guard let cached = try? await engine.file(for: item) else { return }
-            url = PixShareFile.named(cached, mimeType: item.mimeType, base: String(localized: "Voice clip"))
+        // Only where the (encrypted-at-rest) cached file is; nothing is copied yet.
+        .task(id: item.id) { source = try? await engine.file(for: item) }
+    }
+}
+
+/// A voice clip as the share sheet takes it: copied to a named file only at
+/// the moment it's shared.
+struct PixSharedClip: Transferable {
+    let source: URL
+    let mimeType: String
+    let itemID: UUID
+    let folder: URL?
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .audio) { clip in
+            guard let folder = clip.folder else { throw CocoaError(.fileWriteUnknown) }
+            return SentTransferredFile(try PixShareFile.copy(clip.source, mimeType: clip.mimeType, itemID: clip.itemID,
+                                                             into: folder, name: String(localized: "Voice clip")))
         }
     }
 }
 
-/// A shareable copy of a cached file: cached files are named by item id with
-/// no extension, which a share sheet can't make sense of. Lives in tmp; the
-/// next share of the same item replaces it.
+/// Named copies for sharing: cached files are named by item id with no
+/// extension, which a share sheet can't make sense of. They live in
+/// `<storage>/PixKit/<account>/share/`, beside capture/, and go when the
+/// viewer closes and on sign-out.
 enum PixShareFile {
-    static func named(_ cached: URL, mimeType: String, base: String) -> URL? {
-        let ext = UTType(mimeType: mimeType)?.preferredFilenameExtension ?? "m4a"
-        let dir = FileManager.default.temporaryDirectory.appending(path: "PixKit-share", directoryHint: .isDirectory)
-            .appending(path: cached.lastPathComponent, directoryHint: .isDirectory)
-        let out = dir.appending(path: base + "." + ext)
-        do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try? FileManager.default.removeItem(at: out)
-            try FileManager.default.copyItem(at: cached, to: out)
-            return out
-        } catch {
-            return nil
-        }
+    static func folder(_ config: PixConfig) throws -> URL {
+        try PixCapture.folder(config).deletingLastPathComponent().appending(path: "share", directoryHint: .isDirectory)
+    }
+
+    static func copy(_ source: URL, mimeType: String, itemID: UUID, into folder: URL, name: String) throws -> URL {
+        let ext = mimeType.lowercased() == "audio/mpeg" ? "mp3" : "m4a" // the server's audio types
+        let dir = folder.appending(path: itemID.uuidString.lowercased(), directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+                                                attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+        let out = dir.appending(path: name + "." + ext)
+        try? FileManager.default.removeItem(at: out)
+        try FileManager.default.copyItem(at: source, to: out)
+        return out
+    }
+
+    static func sweep(_ config: PixConfig) {
+        guard let dir = try? folder(config) else { return }
+        try? FileManager.default.removeItem(at: dir)
+    }
+}
+
+/// The audio session a voice clip takes, handed back when it stops so other
+/// apps' audio can resume.
+enum PixAudioSession {
+    static func release() {
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 
@@ -416,8 +465,16 @@ enum PixPhotos {
     enum Failure: Error { case notAllowed, notMedia }
 
     /// Adds a photo or video to the person's library (add-only access).
-    static func save(_ url: URL, kind: PixKind, mimeType: String) async throws {
-        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+    static func save(_ url: URL, kind: PixKind, mimeType: String, config: PixConfig) async throws {
+        // The prompt makes the app inactive: it goes through the host's hook,
+        // and only when there's something to ask.
+        if PHPhotoLibrary.authorizationStatus(for: .addOnly) == .notDetermined {
+            _ = await config.prompt {
+                let s = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+                return s == .authorized || s == .limited
+            }
+        }
+        let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
         guard status == .authorized || status == .limited else { throw Failure.notAllowed }
         let type: PHAssetResourceType
         switch kind {

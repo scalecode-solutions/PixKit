@@ -523,6 +523,7 @@ public final class PixEngine {
         listening?.cancel()
         listening = nil
         PixCapture.sweep(config)
+        PixShareFile.sweep(config)
         swept = false
         if let cache { Task { await cache.wipeAll() } }
         if let uploader { Task { await uploader.wipeAll() } }

@@ -73,7 +73,7 @@ public struct PixSpacesView: View {
 
     @ViewBuilder private var content: some View {
         switch engine.spacesState {
-        case .idle, .loading where engine.spaces.isEmpty:
+        case .idle where engine.spaces.isEmpty, .loading where engine.spaces.isEmpty:
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let why) where engine.spaces.isEmpty:
             ContentUnavailableView {

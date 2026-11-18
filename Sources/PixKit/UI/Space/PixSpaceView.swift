@@ -80,7 +80,8 @@ public struct PixSpaceView: View {
             } actions: {
                 Button(String(localized: "Try again")) { Task { await engine.loadItems(spaceID) } }
             }
-        case .idle, .loading where loaded.items.isEmpty && uploads.isEmpty:
+        case .idle where loaded.items.isEmpty && uploads.isEmpty,
+             .loading where loaded.items.isEmpty && uploads.isEmpty:
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         default:
             if loaded.items.isEmpty && uploads.isEmpty {
