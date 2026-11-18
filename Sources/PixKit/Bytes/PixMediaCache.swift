@@ -22,8 +22,14 @@ public actor PixMediaCache: PixMediaCaching {
     /// - Parameters:
     ///   - account: the signed-in user's id; each account gets its own folder.
     ///   - base: the caches directory (tests pass a temp folder).
-    public init(config: PixConfig) {
-        self.init(account: config.currentUserID, client: PixBlobClient(config: config), base: config.storageDirectory)
+    /// The account's one cache (one download per file, one wipe that every
+    /// screen sees), however many times a host asks; see PixUploader.shared.
+    public static func shared(config: PixConfig) -> PixMediaCache {
+        PixShared.caches.instance(for: config) { token in
+            PixMediaCache(account: config.currentUserID,
+                          client: PixBlobClient(baseURL: config.baseURL, token: token),
+                          base: config.storageDirectory)
+        }
     }
 
     init(account: UUID, client: PixBlobClient, base: URL? = nil) {

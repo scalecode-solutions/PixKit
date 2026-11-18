@@ -141,7 +141,9 @@ final class FakeBlobServer: @unchecked Sendable {
 }
 
 final class FakeProtocol: URLProtocol, @unchecked Sendable {
-    override class func canInit(with request: URLRequest) -> Bool { true }
+    /// Only the fake's own hosts, so registering it process-wide (for the
+    /// kit's shared instances, which use URLSession.shared) touches nothing else.
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host?.hasSuffix(".test") == true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
 

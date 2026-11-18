@@ -66,8 +66,17 @@ public actor PixUploader: PixUploading {
     private var restarted: Set<UUID> = []
     private var idle: Task<Void, Never>?
 
-    public init(config: PixConfig) {
-        self.init(account: config.currentUserID, client: PixBlobClient(config: config), base: config.storageDirectory)
+    /// The account's one uploader. Two uploaders on one journal would both
+    /// run its jobs (the same file sent twice), and a SwiftUI host can make
+    /// throwaway objects on any re-render, so the kit hands out a single
+    /// instance per account, storage folder and server. A later call with a
+    /// new token provider (a re-login) swaps it in for the next request.
+    public static func shared(config: PixConfig) -> PixUploader {
+        PixShared.uploaders.instance(for: config) { token in
+            PixUploader(account: config.currentUserID,
+                        client: PixBlobClient(baseURL: config.baseURL, token: token),
+                        base: config.storageDirectory)
+        }
     }
 
     init(account: UUID, client: PixBlobClient, base: URL? = nil,

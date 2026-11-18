@@ -92,7 +92,7 @@ struct LiveBytesTests {
     @Test func aBigPhotoGoesUpInPartsAndBothMembersGetTheSameBytes() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         let file = try bigJPEG()
         let size = try #require(try FileManager.default.attributesOfItem(atPath: file.path)[.size] as? Int64)
 
@@ -107,20 +107,20 @@ struct LiveBytesTests {
         let page = try await live.transport(live.b).listItems(spaceID: space, pageSize: 0, pageToken: nil)
         let listed = try #require(page.items.first { $0.id == item })
         #expect(listed.uploaderID == live.a.id && listed.kind == .photo && listed.hasThumb)
-        let mine = try await PixMediaCache(config: live.config(live.a, dir: dir.appending(path: "a"))).file(item: item, spaceID: space, thumb: false)
-        let theirs = try await PixMediaCache(config: live.config(live.b, dir: dir.appending(path: "b"))).file(item: item, spaceID: space, thumb: false)
+        let mine = try await PixMediaCache.shared(config: live.config(live.a, dir: dir.appending(path: "a"))).file(item: item, spaceID: space, thumb: false)
+        let theirs = try await PixMediaCache.shared(config: live.config(live.b, dir: dir.appending(path: "b"))).file(item: item, spaceID: space, thumb: false)
         let bytes = try Data(contentsOf: mine)
         #expect(bytes == (try Data(contentsOf: theirs)))
         #expect(Int64(bytes.count) == listed.size)
         #expect(UIImage(data: bytes) != nil)
-        let thumb = try await PixMediaCache(config: live.config(live.b, dir: dir.appending(path: "b"))).file(item: item, spaceID: space, thumb: true)
+        let thumb = try await PixMediaCache.shared(config: live.config(live.b, dir: dir.appending(path: "b"))).file(item: item, spaceID: space, thumb: true)
         #expect(UIImage(contentsOfFile: thumb.path) != nil)
     }
 
     @Test func theSameFileAgainIsTheSameItem() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         let file = try smallJPEG()
         guard case .completed(let first, .added)? = try await upload(up, file, "image/jpeg", space)?.state else { Issue.record("first"); return }
         guard case .completed(let again, .existing)? = try await upload(up, file, "image/jpeg", space)?.state else { Issue.record("again"); return }
@@ -130,19 +130,19 @@ struct LiveBytesTests {
     @Test func anAudioClipHasNoThumb() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         guard case .completed(let item, _)? = try await upload(up, try clip(), "audio/mp4", space)?.state else { Issue.record("clip"); return }
         let page = try await live.transport(live.a).listItems(spaceID: space, pageSize: 0, pageToken: nil)
         let listed = try #require(page.items.first { $0.id == item })
         #expect(listed.kind == .audio && !listed.hasThumb && listed.duration != nil)
-        let cache = PixMediaCache(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let cache = PixMediaCache.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         #expect(try Data(contentsOf: try await cache.file(item: item, spaceID: space, thumb: false)).count == Int(listed.size))
     }
 
     @Test func aTypeTheServerRefusesFailsAsUnsupported() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         let gif = dir.appending(path: "x.gif")
         try Data("GIF89a".utf8).write(to: gif)
         #expect(try await upload(up, gif, "image/gif", space)?.state == .failed(.unsupported))
@@ -151,7 +151,7 @@ struct LiveBytesTests {
     @Test func bytesThatAreNoImageFailAsUnsupported() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         let junk = dir.appending(path: "junk.jpg")
         try Data((0..<5000).map { UInt8(truncatingIfNeeded: $0 &* 13) }).write(to: junk)
         let end = try await upload(up, junk, "image/jpeg", space)
@@ -162,7 +162,7 @@ struct LiveBytesTests {
     @Test func anImageOfAnotherTypeFailsAsUnreadable() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         let png = dir.appending(path: "really-a-png.jpg")
         let img = UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { c in
             UIColor.systemTeal.setFill(); c.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
@@ -175,20 +175,20 @@ struct LiveBytesTests {
     @Test func anOutsiderGetsNothing() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         guard case .completed(let item, _)? = try await upload(up, try smallJPEG(), "image/jpeg", space)?.state else { Issue.record("up"); return }
 
-        let theirs = PixMediaCache(config: live.config(live.outsider, dir: dir.appending(path: "out")))
+        let theirs = PixMediaCache.shared(config: live.config(live.outsider, dir: dir.appending(path: "out")))
         await #expect(throws: PixTransportError.notFound) { _ = try await theirs.file(item: item, spaceID: space, thumb: false) }
         await #expect(throws: PixTransportError.notFound) { _ = try await theirs.file(item: item, spaceID: space, thumb: true) }
-        let theirUp = PixUploader(config: live.config(live.outsider, dir: dir.appending(path: "out")))
+        let theirUp = PixUploader.shared(config: live.config(live.outsider, dir: dir.appending(path: "out")))
         #expect(try await upload(theirUp, try smallJPEG(), "image/jpeg", space)?.state == .failed(.spaceGone))
     }
 
     @Test func aKilledUploadResumesWhereTheServerIs() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let first = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let first = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         let file = try bigJPEG()
         let events = first.events()
         _ = try await first.enqueue(file: file, mimeType: "image/jpeg", spaceID: space, ownsFile: false)
@@ -198,7 +198,7 @@ struct LiveBytesTests {
         try FileManager.default.copyItem(at: dir.appending(path: "a"), to: relaunched)
         await first.wipeAll()
 
-        let second = PixUploader(config: live.config(live.a, dir: relaunched))
+        let second = PixUploader.shared(config: live.config(live.a, dir: relaunched))
         let events2 = second.events()
         let found = await second.resumeOnLaunch()
         #expect(found.count == 1)
@@ -211,10 +211,10 @@ struct LiveBytesTests {
     @Test func aRangeResumeOnTheRealServer() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         guard case .completed(let item, _)? = try await upload(up, try bigJPEG(), "image/jpeg", space)?.state else { Issue.record("up"); return }
         let cfg = live.config(live.b, dir: dir.appending(path: "b"))
-        let cache = PixMediaCache(config: cfg)
+        let cache = PixMediaCache.shared(config: cfg)
         let whole = try Data(contentsOf: try await cache.file(item: item, spaceID: space, thumb: false))
         await cache.forget(item: item, spaceID: space)
 
@@ -235,9 +235,9 @@ struct LiveBytesTests {
     @Test func aDeletedItemLeavesTheCache() async throws {
         let live = try #require(LiveBytes.env)
         let space = try await space(live)
-        let up = PixUploader(config: live.config(live.a, dir: dir.appending(path: "a")))
+        let up = PixUploader.shared(config: live.config(live.a, dir: dir.appending(path: "a")))
         guard case .completed(let item, _)? = try await upload(up, try smallJPEG(), "image/jpeg", space)?.state else { Issue.record("up"); return }
-        let theirs = PixMediaCache(config: live.config(live.b, dir: dir.appending(path: "b")))
+        let theirs = PixMediaCache.shared(config: live.config(live.b, dir: dir.appending(path: "b")))
         _ = try await theirs.file(item: item, spaceID: space, thumb: true)
         try await live.transport(live.a).deleteItem(id: item)
         await #expect(throws: PixTransportError.notFound) { _ = try await theirs.file(item: item, spaceID: space, thumb: false) }
