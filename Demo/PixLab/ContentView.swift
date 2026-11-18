@@ -78,7 +78,12 @@ struct PixLabHost: View {
     let server: LabServer
     let signOut: () -> Void
     let config: PixConfig
-    @State private var engine: PixEngine
+    /// Holds the one engine. SwiftUI re-runs this view's init on every parent
+    /// render (each scene-phase change, a permission prompt included) and
+    /// keeps only the first State, so the engine is built lazily inside a
+    /// holder, never in init: a throwaway engine, cache or uploader per
+    /// render would be wasteful at best.
+    @State private var kit = LabKit()
 
     init(userID: UUID, server: LabServer, tokenProvider: @escaping @Sendable () async -> String?, signOut: @escaping () -> Void) {
         self.userID = userID
@@ -87,10 +92,9 @@ struct PixLabHost: View {
         self.config = PixConfig(baseURL: server.pixBaseURL,
                                 currentUserID: userID,
                                 tokenProvider: tokenProvider)
-        _engine = State(initialValue: PixEngine(config: config,
-                                                cache: PixMediaCache(config: config),
-                                                uploader: PixUploader(config: config)))
     }
+
+    private var engine: PixEngine { kit.engine(config) }
 
     var body: some View {
         LabShell(config: config, engine: engine) { account }
@@ -108,5 +112,18 @@ struct PixLabHost: View {
                 signOut()
             }
         }
+    }
+}
+
+/// The Lab's one engine per identity, made on first use.
+@MainActor
+final class LabKit {
+    private var made: PixEngine?
+
+    func engine(_ config: PixConfig) -> PixEngine {
+        if let made { return made }
+        let e = PixEngine(config: config, cache: PixMediaCache(config: config), uploader: PixUploader(config: config))
+        made = e
+        return e
     }
 }
