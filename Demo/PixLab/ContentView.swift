@@ -122,7 +122,7 @@ final class LabKit {
 
     func engine(_ config: PixConfig) -> PixEngine {
         if let made { return made }
-        let e = PixEngine(config: config, cache: PixMediaCache(config: config), uploader: PixUploader(config: config))
+        let e = PixEngine(config: config, cache: PixMediaCache.shared(config: config), uploader: PixUploader.shared(config: config))
         made = e
         return e
     }
