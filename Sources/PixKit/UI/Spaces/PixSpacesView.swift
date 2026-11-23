@@ -136,15 +136,18 @@ public struct PixSpacesView: View {
 struct PixSpaceRow: View {
     let engine: PixEngine
     let space: PixSpace
+    @Environment(\.pixHostPeople) private var host
 
     var body: some View {
+        let people = PixPeople(host: host, engine: engine)
         HStack(spacing: 12) {
-            PixAvatar(friend: engine.friend(space.otherID), size: 44)
+            PixAvatar(id: space.otherID, friend: engine.friend(space.otherID), size: 44)
             VStack(alignment: .leading, spacing: 2) {
-                Text(engine.displayName(of: space))
+                Text(people.title(of: space))
                     .font(.body.weight(.semibold))
                     .lineLimit(1)
-                if !space.name.isEmpty, let other = engine.friend(space.otherID)?.name, !other.isEmpty {
+                    .accessibilityIdentifier("pix.space.title.\(space.id.uuidString.lowercased())")
+                if !space.name.isEmpty, case let other = people.name(space.otherID), !other.isEmpty {
                     Text(String(localized: "With \(other)"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -173,9 +176,12 @@ struct PixFriendPicker: View {
     let engine: PixEngine
     let opened: (PixSpace) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pixHostPeople) private var host
     @State private var opening: UUID?
 
     var body: some View {
+        // Sorted by the name shown, the host's where it has one.
+        let people = PixPeople(host: host, engine: engine)
         Group {
             if engine.friendsWithoutSpace.isEmpty {
                 ContentUnavailableView {
@@ -186,7 +192,7 @@ struct PixFriendPicker: View {
                          : String(localized: "You already share a space with each of your friends."))
                 }
             } else {
-                List(engine.friendsWithoutSpace.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) { friend in
+                List(engine.friendsWithoutSpace.sorted { people.name($0.id).localizedCaseInsensitiveCompare(people.name($1.id)) == .orderedAscending }) { friend in
                     Button {
                         opening = friend.id
                         Task {
@@ -196,8 +202,9 @@ struct PixFriendPicker: View {
                         }
                     } label: {
                         HStack(spacing: 12) {
-                            PixAvatar(friend: friend, size: 36)
-                            Text(friend.name.isEmpty ? String(localized: "Friend") : friend.name)
+                            PixAvatar(id: friend.id, friend: friend, size: 36)
+                            let name = people.name(friend.id)
+                            Text(name.isEmpty ? String(localized: "Friend") : name)
                                 .foregroundStyle(.primary)
                             Spacer()
                             if opening == friend.id { ProgressView() }
@@ -218,14 +225,19 @@ struct PixFriendPicker: View {
     }
 }
 
-/// A friend's avatar, or their initial on a tint.
+/// A friend's avatar: the host's (it draws it), else mvPix's, else their
+/// initial on a tint.
 struct PixAvatar: View {
+    let id: UUID
     let friend: PixFriend?
     let size: CGFloat
+    @Environment(\.pixHostPeople) private var host
 
     var body: some View {
         Group {
-            if let data = friend?.avatar, let image = UIImage(data: data) {
+            if let hosted = host.avatar(id, size) {
+                hosted
+            } else if let data = friend?.avatar, let image = UIImage(data: data) {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
                 ZStack {
@@ -242,7 +254,8 @@ struct PixAvatar: View {
     }
 
     private var initial: String {
-        guard let first = friend?.name.trimmingCharacters(in: .whitespaces).first else { return "?" }
+        let name = host.name(id).flatMap { $0.isEmpty ? nil : $0 } ?? friend?.name ?? ""
+        guard let first = name.trimmingCharacters(in: .whitespaces).first else { return "?" }
         return String(first).uppercased()
     }
 }

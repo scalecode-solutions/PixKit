@@ -14,6 +14,7 @@ struct PixViewer: View {
     @State private var status: String?
     @State private var chromeHidden = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pixHostPeople) private var host
 
     init(engine: PixEngine, spaceID: UUID, start: PixItem) {
         self.engine = engine
@@ -130,7 +131,7 @@ struct PixViewer: View {
 
     private func addedBy(_ item: PixItem) -> String {
         if item.uploaderID == engine.config.currentUserID { return String(localized: "You") }
-        let name = engine.friend(item.uploaderID)?.name ?? ""
+        let name = PixPeople(host: host, engine: engine).name(item.uploaderID)
         return name.isEmpty ? String(localized: "Your friend") : name
     }
 

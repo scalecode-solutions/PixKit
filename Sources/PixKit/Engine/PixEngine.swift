@@ -128,7 +128,9 @@ public final class PixEngine {
 
     public func friend(_ id: UUID) -> PixFriend? { friends.first { $0.id == id } }
 
-    /// What to call a space: its name, else the other person's, else a fallback.
+    /// What to call a space: its name, else the other person's (as mvPix
+    /// names them), else a fallback. The kit's views use the host's names
+    /// where it has them (`pixHostPeople`); this is mvPix's alone.
     public func displayName(of space: PixSpace) -> String {
         if !space.name.isEmpty { return space.name }
         if let name = friend(space.otherID)?.name, !name.isEmpty { return name }

@@ -9,6 +9,7 @@ public struct PixSpaceView: View {
     let engine: PixEngine
     let spaceID: UUID
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pixHostPeople) private var host
     @State private var viewing: PixItem?
     @State private var adding = false
     @State private var renaming = false
@@ -24,7 +25,7 @@ public struct PixSpaceView: View {
 
     public var body: some View {
         content
-            .navigationTitle(engine.space(spaceID).map(engine.displayName(of:)) ?? "")
+            .navigationTitle(engine.space(spaceID).map(PixPeople(host: host, engine: engine).title(of:)) ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
