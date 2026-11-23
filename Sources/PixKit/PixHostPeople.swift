@@ -42,8 +42,9 @@ public struct PixHostPeople: Sendable {
 public enum PixHostPresence: Sendable, Equatable {
     /// In the app, in front.
     case active
-    /// Connected with the app in the background.
-    case background
+    /// Connected with the app in the background; lastSeen is what a text
+    /// shows for it, as the host's own text does (nil: unknown).
+    case background(lastSeen: Date?)
     /// Away, last seen at a time (nil: unknown).
     case lastSeen(Date?)
 }

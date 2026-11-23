@@ -17,6 +17,7 @@
 		D38D3E3C77E776C9C1B667C1 /* PixLabShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */; };
 		E1D1E0CC3F8E5CB169293A90 /* AuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */; };
 		FA88E361B6C07861DD683ED6 /* PixLabEndToEndUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 195508914EEFDDBE1EC45741 /* PixLabEndToEndUITests.swift */; };
+		FE3CBEC822E57742DF949E20 /* PixLabHostPeopleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 965BA16B815C29BE18F3F070 /* PixLabHostPeopleUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,10 +32,11 @@
 
 /* Begin PBXFileReference section */
 		022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabShellUITests.swift; sourceTree = "<group>"; };
+		0CE0F989EC4DE0A4D08C246C /* PixKit-leaf-hostpeople */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "PixKit-leaf-hostpeople"; path = ..; sourceTree = SOURCE_ROOT; };
 		195508914EEFDDBE1EC45741 /* PixLabEndToEndUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabEndToEndUITests.swift; sourceTree = "<group>"; };
-		3BDCDCF3239E78B181208783 /* PixKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PixKit; path = ..; sourceTree = SOURCE_ROOT; };
 		79D0117D727893959426DC60 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8FD1816B376EB87B6FDD98C8 /* AuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModel.swift; sourceTree = "<group>"; };
+		965BA16B815C29BE18F3F070 /* PixLabHostPeopleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixLabHostPeopleUITests.swift; sourceTree = "<group>"; };
 		9955DB0BE5B6D2E35DB92202 /* LabShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabShell.swift; sourceTree = "<group>"; };
 		B0FC448D1B1563FF568EFA37 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		BB412AAD361E332AF2C54CB5 /* PixLabUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PixLabUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -72,7 +74,7 @@
 		4E7B500BAA391A73EBE7BC34 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				3BDCDCF3239E78B181208783 /* PixKit */,
+				0CE0F989EC4DE0A4D08C246C /* PixKit-leaf-hostpeople */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -100,6 +102,7 @@
 			isa = PBXGroup;
 			children = (
 				195508914EEFDDBE1EC45741 /* PixLabEndToEndUITests.swift */,
+				965BA16B815C29BE18F3F070 /* PixLabHostPeopleUITests.swift */,
 				022E4AAA0D02F5F3945BE897 /* PixLabShellUITests.swift */,
 			);
 			path = PixLabUITests;
@@ -196,6 +199,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FA88E361B6C07861DD683ED6 /* PixLabEndToEndUITests.swift in Sources */,
+				FE3CBEC822E57742DF949E20 /* PixLabHostPeopleUITests.swift in Sources */,
 				D38D3E3C77E776C9C1B667C1 /* PixLabShellUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
